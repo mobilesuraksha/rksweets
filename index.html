@@ -1309,7 +1309,7 @@
         <tr style="background:#f0f0f0; font-weight:bold; border-top:2px solid #333;">
             <td>TOTAL</td>
             <td>${grand.orders}</td>
-            <td style="text-align:right; color:#2980b9;">${window.formatMoney(grand.sweets)}</td>
+            <td style="text-align:right; color:#2980b9;">${window.formatMoney(grand.sales)}</td>
             
             <td style="text-align:right; color:#d35400;">${window.formatMoney(grand.restCash)}</td>
             <td style="text-align:right; color:#e67e22;">${window.formatMoney(grand.restOnline)}</td>
@@ -1324,11 +1324,14 @@
       `;
       
       // Update Dashboard Cards with granular data (Can be simplified or detailed)
+      const totalAllSales = grand.sales + (grand.restCash + grand.restOnline) + (grand.showCash + grand.showOnline);
+
       const dash = document.getElementById('monthDashboard');
       dash.innerHTML = `
-        <div class="summary-card" style="border-left-color: #2980b9; background-color: #e1f5fe;"><h4>Sweets</h4><div class="value">${window.formatMoney(grand.sweets)}</div></div>
-        <div class="summary-card" style="border-left-color: #d35400; background-color: #fff3e0;"><h4>Restaurant</h4><div class="value">${window.formatMoney(grand.restCash + grand.restOnline)}</div></div>
-        <div class="summary-card" style="border-left-color: #8e44ad; background-color: #f3e5f5;"><h4>Showroom</h4><div class="value">${window.formatMoney(grand.showCash + grand.showOnline)}</div></div>
+        <div class="summary-card" style="border-left-color: #ff9800; background-color: #fff3e0;"><h4>Grand Total Sale</h4><div class="value">${window.formatMoney(totalAllSales)}</div></div>
+        <div class="summary-card" style="border-left-color: #2980b9; background-color: #e1f5fe;"><h4>Sweets Coll.</h4><div class="value">${window.formatMoney(grand.sweets)}</div></div>
+        <div class="summary-card" style="border-left-color: #d35400; background-color: #fff3e0;"><h4>Rest. Total</h4><div class="value">${window.formatMoney(grand.restCash + grand.restOnline)}</div></div>
+        <div class="summary-card" style="border-left-color: #8e44ad; background-color: #f3e5f5;"><h4>Show. Total</h4><div class="value">${window.formatMoney(grand.showCash + grand.showOnline)}</div></div>
         <div class="summary-card" style="border-left-color: #27ae60; background-color: #e8f5e9;"><h4>Total Income</h4><div class="value">${window.formatMoney(grand.totalColl)}</div></div>
         <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(grand.net)}</div></div>
       `;
@@ -1417,8 +1420,18 @@
       await deleteDoc(doc(db, "ledger", id));
   }
 
+  // UPDATED: Added Password Check for Order Delete
   window.deleteOrder = async (id) => {
-      if(confirm("DELETE ORDER? This removes the order and ALL its ledger entries from Cloud.")) {
+      // 1. Password Prompt
+      const p = prompt("Enter Admin Password to DELETE this Order permanently:");
+      
+      // 2. Validate Password
+      if(p !== "1234") {
+          return alert("❌ Wrong Password! Order NOT deleted.");
+      }
+
+      // 3. Confirm again (optional but safer)
+      if(confirm("⚠ FINAL WARNING: This removes the order and ALL its ledger entries from Cloud. Continue?")) {
           await deleteDoc(doc(db, "orders", id));
           const relatedLedger = globalLedger.filter(l => l.orderId === id);
           relatedLedger.forEach(async (l) => {
@@ -1488,10 +1501,10 @@
       });
   }
 
+  // UPDATED: Now shows ITEM DETAILS in Ledger description
   window.renderLedger = () => {
       const cust = document.getElementById('ledgerCustomerSelect').value;
       if (!cust) {
-          // Hide ledger if no customer selected
           document.getElementById('ledgerContent').style.display = 'none';
           return;
       }
@@ -1515,11 +1528,26 @@
           
           const debit = l.type === 'DEBIT' ? window.formatMoney(amount) : '';
           const credit = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? window.formatMoney(amount) : '';
-          const desc = l.type === 'DISCOUNT' ? `<b>Discount</b>` : (l.desc || 'Order');
+          let desc = l.type === 'DISCOUNT' ? `<b>Discount</b>` : (l.desc || 'Order');
           
+          // --- NEW: FETCH ITEMS DETAILS FOR DEBIT ENTRIES ---
+          let itemDetails = "";
+          if(l.type === 'DEBIT' && l.orderId) {
+              const ord = globalOrders.find(o => o.id === l.orderId);
+              if(ord && ord.boxGroups) {
+                  itemDetails = '<div style="font-size:10px; color:#666; margin-top:3px;">';
+                  ord.boxGroups.forEach(bg => {
+                       const iNames = bg.items.map(i=>i.name).join(', ');
+                       itemDetails += `• ${bg.groupQty} x ${bg.groupName} <i style="color:#888">(${iNames})</i><br>`;
+                  });
+                  itemDetails += '</div>';
+              }
+          }
+          // --------------------------------------------------
+
           const action = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? `<button class="btn btn-sm btn-warning" onclick="window.openEditPayment('${l.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">Del</button>` : '';
 
-          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${desc} <small>(${l.mode || 'Bill'})</small></td><td style="text-align:right;">${debit}</td><td style="text-align:right;">${credit}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(runningBalance)}</td><td class="filter-controls-screen">${action}</td></tr>`;
+          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${desc} <small>(${l.mode || 'Bill'})</small>${itemDetails}</td><td style="text-align:right;">${debit}</td><td style="text-align:right;">${credit}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(runningBalance)}</td><td class="filter-controls-screen">${action}</td></tr>`;
       });
       
       document.getElementById('ledgerTotalDebit').innerText = window.formatMoney(totalDebit);
