@@ -366,6 +366,7 @@
                 <input type="month" id="monthInput" onchange="window.renderMonthReports()">
             </div>
             <div class="form-group" style="align-self: flex-end;">
+                <button class="btn btn-warning" onclick="document.getElementById('incomeModal').style.display='block'">+ Add Daily Income (Rest/Showroom)</button>
                 <button class="btn btn-primary" onclick="window.print()">Print Report</button>
             </div>
         </div>
@@ -386,6 +387,12 @@
                 </tr>
             </thead>
             <tbody id="monthTableBody"></tbody>
+        </table>
+
+        <h3 style="margin-top:30px; border-left:5px solid #f39c12; padding-left:10px;">Restaurant & Showroom Income Log</h3>
+        <table class="data-table" id="otherIncomeTable">
+            <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Mode</th><th class="filter-controls-screen">Action</th></tr></thead>
+            <tbody></tbody>
         </table>
     </div>
 
@@ -559,6 +566,31 @@
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button class="btn btn-primary" style="flex:1" onclick="window.saveEditedPayment()">Update</button>
             <button class="btn btn-danger" style="flex:1" onclick="document.getElementById('editPayModal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="incomeModal" class="modal">
+    <div class="modal-content">
+        <h3>Add Other Daily Income</h3>
+        <label>Date</label>
+        <input type="date" id="incDate" style="margin-bottom:10px;">
+        
+        <label>Source</label>
+        <select id="incSource" style="margin-bottom:10px;">
+            <option value="Restaurant">Restaurant Sale</option>
+            <option value="Showroom">Showroom Sale</option>
+        </select>
+
+        <label>Amount</label>
+        <input type="number" id="incAmt" placeholder="Total Sale Amount" style="margin-bottom:10px;">
+        
+        <label>Mode</label>
+        <select id="incMode" class="payment-select" style="margin-bottom:10px;"></select>
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn btn-success" style="flex:1" onclick="window.saveOtherIncome()">Save Income</button>
+            <button class="btn btn-danger" style="flex:1" onclick="document.getElementById('incomeModal').style.display='none'">Cancel</button>
         </div>
     </div>
 </div>
@@ -745,6 +777,7 @@
           if(!i.id.includes('search') && !i.id.includes('dueDetail')) i.value = today;
       });
       document.getElementById('monthInput').value = new Date().toISOString().slice(0, 7);
+      document.getElementById('incDate').value = today; // Set default date for income modal
       window.addBoxGroup(); 
   };
 
@@ -1009,7 +1042,7 @@
       globalLedger.forEach(l => {
           if(l.date === date) {
               const amt = parseFloat(l.amount) || 0;
-              if(l.type === 'CREDIT') {
+              if(l.type === 'CREDIT' || l.type === 'EXTRA_INCOME') {
                   totalInc += amt;
                   const m = (l.mode || 'Unknown').trim();
                   modeCounts[m] = (modeCounts[m] || 0) + amt;
@@ -1140,7 +1173,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS (UPDATED WITH CASH COLUMN) ---
+  // --- NEW: MONTHLY REPORTS (UPDATED TO INCLUDE EXTRA INCOME) ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
@@ -1169,7 +1202,8 @@
               // Check if mode contains "Cash" or "Counter"
               const isCash = l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'));
 
-              if(l.type === 'CREDIT') {
+              // --- UPDATED: Also count EXTRA_INCOME ---
+              if(l.type === 'CREDIT' || l.type === 'EXTRA_INCOME') {
                   dailyData[l.date].collection += amt;
                   if(isCash) dailyData[l.date].cashIncome += amt;
               }
@@ -1219,6 +1253,47 @@
             </tr>
           `;
       });
+
+      // --- RENDER EXTRA INCOME TABLE ---
+      const extraTbody = document.querySelector('#otherIncomeTable tbody');
+      extraTbody.innerHTML = '';
+      const extraIncomes = globalLedger.filter(l => l.type === 'EXTRA_INCOME' && l.date.startsWith(monthInput)).sort((a,b) => new Date(b.date) - new Date(a.date));
+      
+      extraIncomes.forEach(inc => {
+          extraTbody.innerHTML += `
+            <tr>
+                <td>${window.formatDate(inc.date)}</td>
+                <td>${inc.source}</td>
+                <td style="font-weight:bold; color:green;">${window.formatMoney(inc.amount)}</td>
+                <td>${inc.mode}</td>
+                <td class="filter-controls-screen"><button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${inc.id}')">Del</button></td>
+            </tr>`;
+      });
+  }
+
+  // --- NEW FUNCTION: SAVE OTHER INCOME ---
+  window.saveOtherIncome = async () => {
+      const date = document.getElementById('incDate').value;
+      const source = document.getElementById('incSource').value;
+      const amount = parseFloat(document.getElementById('incAmt').value);
+      const mode = document.getElementById('incMode').value;
+
+      if(!date || !amount) return alert("Please fill Date and Amount");
+
+      const id = genId();
+      await setDoc(doc(db, "ledger", id), {
+          id: id,
+          type: 'EXTRA_INCOME',
+          date: date,
+          amount: amount,
+          source: source,
+          mode: mode,
+          desc: `${source} Sales` 
+      });
+
+      document.getElementById('incomeModal').style.display = 'none';
+      document.getElementById('incAmt').value = '';
+      alert("Income Added!");
   }
 
   // --- ACTIONS (DELETE/EDIT) ---
