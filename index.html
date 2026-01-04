@@ -117,6 +117,10 @@
         .icon-edit { color: #2980b9; }
         .icon-del { color: #c0392b; }
 
+        /* Pay History (New Style) */
+        .pay-history-item { font-size: 11px; color: #666; border-bottom: 1px solid #f0f0f0; padding: 3px 0; display: flex; justify-content: space-between; }
+        .pay-history-item:last-child { border-bottom: none; }
+
         /* Ledger Summary Bar */
         .ledger-summary-grid { display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px; }
         .ls-item { flex: 0 0 auto; min-width: 180px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); background-color: white; border-left: 5px solid #ccc; }
@@ -328,7 +332,7 @@
                     <th style="width:15%">Customer</th>
                     <th style="width:25%">Box Details</th>
                     <th style="width:12%">Bill Amount</th>
-                    <th style="width:20%">Paid Details</th>
+                    <th style="width:20%">Paid Details (Hist)</th>
                     <th style="width:10%">Due</th>
                 </tr>
             </thead>
@@ -560,13 +564,9 @@
 
 <script type="module">
   // --- 🔒 KILL SWITCH START 🔒 ---
-  // Agar file "file://" ya "localhost" par hai, to Browser Cache Clear karo aur Execution Stop karo
   if (window.location.protocol === "file:") {
-      // 1. Clear saved data immediately
       localStorage.clear();
       sessionStorage.clear();
-      
-      // 2. Show Block Message
       document.body.innerHTML = `
           <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; font-family:sans-serif; background:#f5f5f5;">
               <h1 style="color:#555;">Cloud Access Only</h1>
@@ -574,8 +574,6 @@
               <p>Please open the official website link.</p>
           </div>
       `;
-      
-      // 3. Stop Script Execution (Data Fetch functions will never run)
       throw new Error("Execution stopped: Local file access detected.");
   }
   // --- KILL SWITCH END ---
@@ -637,7 +635,7 @@
   function startDataSync() {
       onSnapshot(collection(db, "orders"), (snapshot) => {
           globalOrders = snapshot.docs.map(doc => doc.data());
-          updateSuggestions(); // Update the suggestions list
+          updateSuggestions();
           refreshCurrentTab();
           updateStats();
       });
@@ -648,7 +646,6 @@
       });
   }
   
-  // New: Update Suggestion Lists
   function updateSuggestions() {
       const orderList = document.getElementById('orderNoList');
       const custList = document.getElementById('custList');
@@ -751,7 +748,6 @@
       document.getElementById(id).style.display = 'block';
       document.getElementById(id).classList.add('active-print');
       btn.classList.add('active');
-      
       refreshCurrentTab();
   }
 
@@ -824,12 +820,11 @@
       const existingOrder = globalOrders.find(o => o.no === orderNo);
       let isDuplicateMerge = false;
 
-      // --- DUPLICATE CHECK LOGIC ---
       if(existingOrder && !document.getElementById('orderId').value) {
           if(confirm(`⚠️ Order No "${orderNo}" already exists for customer "${existingOrder.cust}".\n\nDo you want to ADD these new items to their account? (Yes = Merge, No = Cancel)`)) {
               isDuplicateMerge = true;
           } else {
-              return; // User cancelled
+              return; 
           }
       }
 
@@ -853,7 +848,6 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
-      // Set ID: Use existing if merging, else create new
       let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
       
       const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
@@ -861,23 +855,17 @@
       const currentNewTotal = parseFloat(document.getElementById('totalAmount').value) || 0;
       
       try {
-          // --- LOGIC: NEW ORDER vs MERGE ORDER ---
           if (isDuplicateMerge) {
-              // 1. Merge Box Groups
               const updatedBoxGroups = [...existingOrder.boxGroups, ...boxGroups];
-              
-              // 2. Update Total Amount (Old Total + New Amount)
               const oldTotal = parseFloat(existingOrder.total) || 0;
               const newGrandTotal = oldTotal + currentNewTotal;
 
-              // 3. Update Order in Cloud
               await updateDoc(doc(db, "orders", id), {
                   boxGroups: updatedBoxGroups,
                   total: newGrandTotal,
-                  delDate: document.getElementById('deliveryDate').value // Update delivery date to latest
+                  delDate: document.getElementById('deliveryDate').value
               });
 
-              // 4. Create NEW Ledger Entry for the ADDED Amount (Preserves old ledger)
               const additionalDebitId = genId();
               await setDoc(doc(db, "ledger", additionalDebitId), {
                   id: additionalDebitId,
@@ -892,7 +880,6 @@
               alert(`Added new items to existing Order #${orderNo}.\nAccount debited by ₹${currentNewTotal}.`);
 
           } else {
-              // --- NORMAL NEW ORDER (OR EDITING EXISTING) ---
               const isEdit = document.getElementById('orderId').value !== "";
               
               const newOrder = {
@@ -913,12 +900,7 @@
               
               await setDoc(doc(db, "orders", id), newOrder);
 
-              // Ledger Logic for New/Edit
               if(isEdit) {
-                 // For edit, we update the PRIMARY debit entry.
-                 // (Note: If user used "Merge" before, there might be multiple debits. 
-                 // This basic Edit only updates the PRIMARY one usually. 
-                 // For complexity sake, we assume simple edits here).
                  const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
                  if(existingDebit) {
                      await updateDoc(doc(db, "ledger", existingDebit.id), {
@@ -928,7 +910,6 @@
                      });
                  }
               } else {
-                  // Fresh Order -> One fresh Debit entry
                   const debitEntryId = genId();
                   await setDoc(doc(db, "ledger", debitEntryId), {
                       id: debitEntryId, 
@@ -943,7 +924,6 @@
               alert('Order Saved to Cloud!');
           }
 
-          // Handle Advance Payment (Common for both)
           const adv = parseFloat(document.getElementById('advancePaid').value);
           if(adv > 0) {
                const payDate = document.getElementById('advanceDate').value || today;
@@ -953,7 +933,6 @@
                });
           }
 
-          // Reset Form
           this.reset();
           document.getElementById('boxContainer').innerHTML = '';
           window.addBoxGroup();
@@ -966,7 +945,7 @@
       }
   });
 
-  // --- RENDER FUNCTIONS (Kept same) ---
+  // --- RENDER FUNCTIONS ---
   window.renderProduction = () => {
       const date = document.getElementById('prodDateFilter').value;
       const search = document.getElementById('prodSearchFilter').value.toLowerCase();
@@ -1057,13 +1036,22 @@
       uniqueOrds.forEach(oid => {
           const ord = globalOrders.find(o=>o.id===oid);
           if(ord) {
-              const txns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
-              const todayTxns = txns.filter(t => t.date === date);
-              let badgesHtml = '';
+              // --- CHANGED LOGIC FOR PAYMENT HISTORY ---
+              const allTxns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
+              
+              // Sort newest first
+              allTxns.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-              if(todayTxns.length > 0) {
-                  todayTxns.forEach(t => {
-                      badgesHtml += `
+              let historyHtml = '';
+              let paidTotalEver = 0;
+
+              allTxns.forEach(t => {
+                  paidTotalEver += parseFloat(t.amount);
+                  const isCurrentDate = t.date === date;
+                  
+                  if(isCurrentDate) {
+                      // Big Badge for today
+                      historyHtml += `
                       <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
                           <div style="display:flex; justify-content:space-between; align-items:center;">
                               <span><b>${window.formatMoney(t.amount)}</b> <span style="font-size:11px">(${t.mode})</span></span>
@@ -1073,17 +1061,23 @@
                               </div>
                           </div>
                       </div>`;
-                  });
-              }
-              const paidTotalEver = txns.reduce((s,l)=>s+parseFloat(l.amount),0);
+                  } else {
+                      // Small history item for past dates
+                      historyHtml += `
+                      <div class="pay-history-item">
+                          <span>${window.formatDate(t.date)}:</span>
+                          <span><b>${window.formatMoney(t.amount)}</b> (${t.mode})</span>
+                      </div>`;
+                  }
+              });
+
               const due = ord.total - paidTotalEver;
-              
               let boxDetailsStr = "";
               if(ord.boxGroups){
                    boxDetailsStr = ord.boxGroups.map(bg => `${bg.groupQty} x ${bg.groupName}`).join(', ');
               }
 
-              tbody.innerHTML += `<tr><td>${ord.no}</td><td>${window.formatDate(ord.delDate)}</td><td>${ord.cust}</td><td>${boxDetailsStr}</td><td>${window.formatMoney(ord.total)}</td><td>${badgesHtml}</td><td style="color:${due>0?'red':'green'}">${window.formatMoney(due)}</td></tr>`;
+              tbody.innerHTML += `<tr><td>${ord.no}</td><td>${window.formatDate(ord.delDate)}</td><td>${ord.cust}</td><td>${boxDetailsStr}</td><td>${window.formatMoney(ord.total)}</td><td>${historyHtml}</td><td style="color:${due>0?'red':'green'}">${window.formatMoney(due)}</td></tr>`;
           }
       });
 
@@ -1095,30 +1089,26 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS ---
+  // --- MONTHLY REPORTS, ACTIONS, DUE, ALL ORDERS, LEDGER, ETC remain same ---
+  // (All below functions are identical to previous version, just re-included for completeness)
+
   window.renderMonthReports = () => {
-      const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
+      const monthInput = document.getElementById('monthInput').value;
       if(!monthInput) return;
       document.getElementById('printDateMonth').innerText = "Monthly Report: " + monthInput;
-
-      // 1. Filter Data
       const daysInMonth = new Date(monthInput.split('-')[0], monthInput.split('-')[1], 0).getDate();
       const dailyData = {};
-
       for(let i=1; i<=daysInMonth; i++) {
           const d = i < 10 ? '0'+i : i;
           const fullDate = `${monthInput}-${d}`;
           dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0 };
       }
-
-      // Fill Data from Ledger & Orders
       globalOrders.forEach(o => {
           if(o.date.startsWith(monthInput)) {
               dailyData[o.date].orders += 1;
               dailyData[o.date].sales += parseFloat(o.total || 0);
           }
       });
-
       globalLedger.forEach(l => {
           if(l.date.startsWith(monthInput)) {
               const amt = parseFloat(l.amount || 0);
@@ -1126,8 +1116,6 @@
               if(l.type === 'EXPENSE') dailyData[l.date].expense += amt;
           }
       });
-
-      // 2. Render Dashboard Totals
       let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0;
       Object.values(dailyData).forEach(d => {
           totalOrders += d.orders;
@@ -1135,7 +1123,6 @@
           totalColl += d.collection;
           totalExp += d.expense;
       });
-
       const dash = document.getElementById('monthDashboard');
       dash.innerHTML = `
         <div class="summary-card" style="border-left-color: #3498db; background-color: #e1f5fe;"><h4>Total Orders</h4><div class="value">${totalOrders}</div></div>
@@ -1144,28 +1131,16 @@
         <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Total Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
         <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET CASH PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
       `;
-
-      // 3. Render Table
       const tbody = document.getElementById('monthTableBody');
       tbody.innerHTML = '';
       Object.keys(dailyData).sort().forEach(date => {
           const d = dailyData[date];
-          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return; // Skip empty days
+          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return;
           const net = d.collection - d.expense;
-          tbody.innerHTML += `
-            <tr>
-                <td>${window.formatDate(date)}</td>
-                <td>${d.orders}</td>
-                <td style="text-align:right;">${window.formatMoney(d.sales)}</td>
-                <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td>
-                <td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td>
-                <td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td>
-            </tr>
-          `;
+          tbody.innerHTML += `<tr><td>${window.formatDate(date)}</td><td>${d.orders}</td><td style="text-align:right;">${window.formatMoney(d.sales)}</td><td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td><td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td></tr>`;
       });
   }
 
-  // --- ACTIONS (DELETE/EDIT) ---
   window.deleteTransaction = async (id) => {
       if(!confirm("Delete this payment? Cloud will update immediately.")) return;
       await deleteDoc(doc(db, "ledger", id));
@@ -1182,14 +1157,12 @@
       }
   }
 
-  // --- DUE PAYMENTS ---
   window.renderDuePayments = () => {
       const q = document.getElementById('dueSearchInput').value.toLowerCase();
       const filterDate = document.getElementById('dueDetailDate').value;
       const tbody = document.querySelector('#dueTable tbody');
       tbody.innerHTML = '';
       let totalDue = 0;
-
       globalOrders.forEach(o => {
           if(filterDate && o.date !== filterDate) return;
           const paid = globalLedger.filter(l=>(l.type==='CREDIT' || l.type==='DISCOUNT') && l.orderId===o.id).reduce((s,l)=>s+parseFloat(l.amount),0);
@@ -1203,16 +1176,13 @@
       if(totalDue > 0) tbody.innerHTML += `<tr style="background:#fff3e0; font-weight:bold;"><td colspan="5" style="text-align:right">Total Pending:</td><td style="color:red;">${window.formatMoney(totalDue)}</td><td></td></tr>`;
   }
 
-  // --- ALL ORDERS ---
   window.renderAllOrders = () => {
       const q = document.getElementById('searchOrder').value.toLowerCase();
       const fromDate = document.getElementById('searchFromDate').value;
       const toDate = document.getElementById('searchToDate').value;
       const tbody = document.querySelector('#allOrdersTable tbody');
       tbody.innerHTML = '';
-      
       const sorted = [...globalOrders].sort((a,b) => new Date(b.date) - new Date(a.date));
-
       sorted.forEach(o => {
           if (fromDate && o.date < fromDate) return;
           if (toDate && o.date > toDate) return;
@@ -1223,7 +1193,6 @@
       });
   }
 
-  // --- LEDGER ---
   window.populateLedgerSelect = () => {
       const customers = [...new Set(globalOrders.map(o => o.cust))].sort();
       const sel = document.getElementById('ledgerCustomerSelect');
@@ -1236,36 +1205,28 @@
       if (!cust) return;
       const ledger = globalLedger.filter(l => l.cust === cust).sort((a,b) => new Date(a.date) - new Date(b.date));
       const linkedOrder = globalOrders.find(o => o.cust === cust);
-      
       document.getElementById('printLedgerCustName').innerText = cust;
       document.getElementById('printLedgerMobile').innerText = linkedOrder ? "Mobile: " + linkedOrder.mobile : "";
       document.getElementById('printLedgerDate').innerText = window.formatDate(today);
       document.getElementById('ledgerContent').style.display = 'block';
-      
       const tbody = document.querySelector('#ledgerTable tbody');
       tbody.innerHTML = '';
       let runningBalance = 0, totalDebit = 0, totalCredit = 0;
-
       ledger.forEach(l => {
           const amount = parseFloat(l.amount);
           if (l.type === 'DEBIT') { runningBalance += amount; totalDebit += amount; }
           if (l.type === 'CREDIT' || l.type === 'DISCOUNT') { runningBalance -= amount; totalCredit += amount; }
-          
           const debit = l.type === 'DEBIT' ? window.formatMoney(amount) : '';
           const credit = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? window.formatMoney(amount) : '';
           const desc = l.type === 'DISCOUNT' ? `<b>Discount</b>` : (l.desc || 'Order');
-          
           const action = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? `<button class="btn btn-sm btn-warning" onclick="window.openEditPayment('${l.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">Del</button>` : '';
-
           tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${desc} <small>(${l.mode || 'Bill'})</small></td><td style="text-align:right;">${debit}</td><td style="text-align:right;">${credit}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(runningBalance)}</td><td class="filter-controls-screen">${action}</td></tr>`;
       });
-      
       document.getElementById('ledgerTotalDebit').innerText = window.formatMoney(totalDebit);
       document.getElementById('ledgerTotalCredit').innerText = window.formatMoney(totalCredit);
       document.getElementById('ledgerBalance').innerText = window.formatMoney(runningBalance);
   }
 
-  // --- EDIT/PAYMENT UTILS ---
   window.editOrder = (id) => {
       const o = globalOrders.find(x => x.id === id);
       if(!o) return;
@@ -1300,7 +1261,6 @@
       const mode = document.getElementById('modalPayMode').value;
       const date = document.getElementById('modalPayDate').value; 
       const o = globalOrders.find(x => x.id === id);
-      
       if(amt > 0) {
           const pid = genId();
           await setDoc(doc(db, "ledger", pid), {id: pid, type:'CREDIT', orderId:id, cust:o.cust, date:date, amount:amt, mode:mode, desc:'Payment Received'});
@@ -1328,13 +1288,11 @@
       const date = document.getElementById('editPayDate').value;
       const amt = parseFloat(document.getElementById('editPayAmt').value);
       const mode = document.getElementById('editPayMode').value;
-      
       await updateDoc(doc(db, "ledger", id), { date: date, amount: amt, mode: mode });
       document.getElementById('editPayModal').style.display = 'none';
       alert("Payment Updated in Cloud");
   }
 
-  // --- EXPENSES ---
   window.renderExpenses = () => {
       document.getElementById('expDate').value = today;
       const ledger = globalLedger.filter(l => l.type === 'EXPENSE');
@@ -1357,7 +1315,6 @@
       alert("Expense Added");
   }
 
-  // --- IMPORT/EXPORT (SYSTEM ADMIN) ---
   window.exportData = () => {
       const data = {orders: globalOrders, ledger: globalLedger};
       const a = document.createElement('a');
@@ -1374,10 +1331,8 @@
           try {
               if(!confirm("⚠️ WARNING: This will overwrite/merge cloud data. Continue?")) return;
               const data = JSON.parse(e.target.result);
-              
               const batch = writeBatch(db);
               let count = 0;
-              
               if (data.orders) {
                   data.orders.forEach(o => {
                       const ref = doc(db, "orders", o.id);
@@ -1400,7 +1355,6 @@
       };
       reader.readAsText(file);
   }
-
 </script>
 </body>
 </html>
