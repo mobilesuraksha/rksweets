@@ -698,19 +698,22 @@
       return `${d}-${m}-${y}`;
   }
 
+  // UPDATED: Added CREDITS styling
   window.getModeBadgeStyle = (mode) => {
       mode = (mode || '').toUpperCase();
       if(mode.includes('DISCOUNT')) return 'background:#fff8e1; color:#f57f17; border:1px solid #ffecb3; border-left-color:#f57f17;';
       if(mode.includes('CASH') || mode.includes('COUNTER')) return 'background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-left-color:#2e7d32;'; 
       if(mode.includes('UPI') || mode.includes('PAYTM') || mode.includes('GPAY') || mode.includes('ONLINE')) return 'background:#e3f2fd; color:#1565c0; border:1px solid #bbdefb; border-left-color:#1565c0;'; 
+      if(mode.includes('CREDIT')) return 'background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; border-left-color:#7b1fa2;'; // New purple style
       return 'background:#f5f5f5; color:#424242; border:1px solid #bdbdbd; border-left-color:#424242;'; 
   }
 
+  // UPDATED: Added CREDITS styling for dashboard card
   window.getCardStyle = (mode) => {
         mode = (mode || '').toUpperCase();
         if(mode.includes('CASH') || mode.includes('COUNTER')) return 'border-left-color: #4caf50; background-color: #e8f5e9; color: #2e7d32;';
         if(mode.includes('UPI') || mode.includes('PAYTM') || mode.includes('ONLINE')) return 'border-left-color: #2196f3; background-color: #e3f2fd; color: #1565c0;';
-        if(mode.includes('CARD')) return 'border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;';
+        if(mode.includes('CARD') || mode.includes('CREDIT')) return 'border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;';
         return 'border-left-color: #607d8b; background-color: #eceff1; color: #455a64;';
   }
 
