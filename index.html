@@ -446,7 +446,7 @@
             <div class="form-group">
                 <label>Select Customer</label>
                 <select id="ledgerCustomerSelect" onchange="window.renderLedger()">
-                    <option value="">-- Select --</option>
+                    <option value="">-- Select Customer --</option>
                 </select>
             </div>
             <div class="form-group" style="align-self: flex-end;">
@@ -632,16 +632,18 @@
       }
   });
 
-  // --- REAL-TIME SYNC ---
+  // --- REAL-TIME SYNC (FIXED: Added populateLedgerSelect calls) ---
   function startDataSync() {
       onSnapshot(collection(db, "orders"), (snapshot) => {
           globalOrders = snapshot.docs.map(doc => doc.data());
           updateSuggestions();
+          window.populateLedgerSelect(); // Fix: Update ledger list
           refreshCurrentTab();
           updateStats();
       });
       onSnapshot(collection(db, "ledger"), (snapshot) => {
           globalLedger = snapshot.docs.map(doc => doc.data());
+          window.populateLedgerSelect(); // Fix: Update ledger list
           refreshCurrentTab();
           updateStats();
       });
@@ -1224,8 +1226,11 @@
       });
   }
 
-  // --- LEDGER ---
+  // --- LEDGER (FIXED: Improved populating logic) ---
   window.populateLedgerSelect = () => {
+      const sel = document.getElementById('ledgerCustomerSelect');
+      const currentVal = sel.value; // Store current selection to prevent reset
+
       // Get unique customers from BOTH Orders AND Ledger
       const orderCusts = globalOrders.map(o => o.cust);
       const ledgerCusts = globalLedger.map(l => l.cust);
@@ -1233,16 +1238,21 @@
       const allCusts = [...new Set([...orderCusts, ...ledgerCusts])];
       const sortedCusts = allCusts.filter(c => c && c.trim() !== "").sort();
 
-      const sel = document.getElementById('ledgerCustomerSelect');
-      sel.innerHTML = '<option value="">-- Select --</option>';
+      sel.innerHTML = '<option value="">-- Select Customer --</option>';
       sortedCusts.forEach(c => {
-          sel.innerHTML += `<option value="${c}">${c}</option>`;
+          const isSelected = c === currentVal ? 'selected' : '';
+          sel.innerHTML += `<option value="${c}" ${isSelected}>${c}</option>`;
       });
   }
 
   window.renderLedger = () => {
       const cust = document.getElementById('ledgerCustomerSelect').value;
-      if (!cust) return;
+      if (!cust) {
+          // Hide ledger if no customer selected
+          document.getElementById('ledgerContent').style.display = 'none';
+          return;
+      }
+      
       const ledger = globalLedger.filter(l => l.cust === cust).sort((a,b) => new Date(a.date) - new Date(b.date));
       const linkedOrder = globalOrders.find(o => o.cust === cust);
       
@@ -1409,7 +1419,6 @@
       };
       reader.readAsText(file);
   }
-
 </script>
 </body>
 </html>
