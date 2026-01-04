@@ -8,7 +8,7 @@
     <style>
         /* --- GENERAL STYLES --- */
         body { font-family: 'Poppins', sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
-        .container { max-width: 1400px; margin: 20px auto; padding: 25px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); border-radius: 12px; }
+        .container { max-width: 1600px; margin: 20px auto; padding: 25px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); border-radius: 12px; }
         h1 { color: #2c3e50; font-weight: 700; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 25px; }
         h2 { color: #34495e; font-weight: 600; margin-top: 0; margin-bottom: 20px; border-left: 5px solid #3498db; padding-left: 10px; }
 
@@ -92,8 +92,8 @@
 
         /* Tables */
         .table-responsive { overflow-x: auto; margin-top: 20px; }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; background-color: white; table-layout: fixed; }
-        .data-table th, .data-table td { padding: 8px 10px; border: 1px solid #eee; text-align: left; vertical-align: top; word-wrap: break-word;}
+        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; background-color: white; table-layout: fixed; }
+        .data-table th, .data-table td { padding: 6px 8px; border: 1px solid #eee; text-align: left; vertical-align: top; word-wrap: break-word;}
         .data-table th { background-color: #f2f2f2; color: #333; font-weight: 600; }
         
         /* Summary Dashboard */
@@ -142,8 +142,8 @@
             .tab-menu, .btn, .filter-controls-screen, h1, #reportsTab, .badge-actions { display: none !important; }
             .tab-content { display: none; }
             .tab-content.active-print { display: block !important; }
-            .data-table { font-size: 11px; width: 100%; border: 1px solid #000; }
-            .data-table th, .data-table td { border: 1px solid #000 !important; color: black; padding: 5px !important; }
+            .data-table { font-size: 10px; width: 100%; border: 1px solid #000; }
+            .data-table th, .data-table td { border: 1px solid #000 !important; color: black; padding: 4px !important; }
             .data-table th { background-color: #eee !important; font-weight: bold; }
             .print-header-date { display: block !important; font-size: 14px; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
             h2 { font-size: 16px !important; margin: 5px 0 10px 0 !important; border: none !important; padding: 0 !important; text-align: center; text-transform: uppercase; }
@@ -366,7 +366,7 @@
                 <input type="month" id="monthInput" onchange="window.renderMonthReports()">
             </div>
             <div class="form-group" style="align-self: flex-end;">
-                <button class="btn btn-warning" onclick="document.getElementById('incomeModal').style.display='block'">+ Add Daily Income (Rest/Showroom)</button>
+                <button class="btn btn-warning" onclick="window.openIncomeModal()">+ Add Daily Income (Rest/Showroom)</button>
                 <button class="btn btn-primary" onclick="window.print()">Print Report</button>
             </div>
         </div>
@@ -377,13 +377,16 @@
         <table class="data-table" id="monthTable">
             <thead>
                 <tr>
-                    <th style="width:12%">Date</th>
-                    <th style="width:10%">Orders</th>
-                    <th style="width:18%; text-align:right;">Billed Sale</th>
-                    <th style="width:18%; text-align:right; color:#27ae60;">Total Collection</th>
-                    <th style="width:15%; text-align:right; color:#1565c0; font-weight:bold;">Cash</th>
-                    <th style="width:15%; text-align:right; color:#c0392b;">Expenses</th>
-                    <th style="width:12%; text-align:right;">Net Profit</th>
+                    <th style="width:10%">Date</th>
+                    <th style="width:5%">Ord</th>
+                    <th style="width:10%; text-align:right;">Sweets</th>
+                    <th style="width:10%; text-align:right; color:#d35400;">Rest. Cash</th>
+                    <th style="width:10%; text-align:right; color:#e67e22;">Rest. UPI</th>
+                    <th style="width:10%; text-align:right; color:#8e44ad;">Show. Cash</th>
+                    <th style="width:10%; text-align:right; color:#9b59b6;">Show. UPI</th>
+                    <th style="width:10%; text-align:right; color:#27ae60; font-weight:bold;">Total Inc.</th>
+                    <th style="width:10%; text-align:right; color:#c0392b;">Exp</th>
+                    <th style="width:10%; text-align:right;">Net Profit</th>
                 </tr>
             </thead>
             <tbody id="monthTableBody"></tbody>
@@ -572,8 +575,8 @@
 
 <div id="incomeModal" class="modal">
     <div class="modal-content">
-        <h3>Add Other Daily Income</h3>
-        <label>Date</label>
+        <h3 id="incModalTitle">Add Other Daily Income</h3>
+        <input type="hidden" id="incId"> <label>Date</label>
         <input type="date" id="incDate" style="margin-bottom:10px;">
         
         <label>Source</label>
@@ -586,10 +589,15 @@
         <input type="number" id="incAmt" placeholder="Total Sale Amount" style="margin-bottom:10px;">
         
         <label>Mode</label>
-        <select id="incMode" class="payment-select" style="margin-bottom:10px;"></select>
+        <select id="incMode" style="margin-bottom:10px;">
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI (Online)</option>
+            <option value="Card">Card</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+        </select>
         
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <button class="btn btn-success" style="flex:1" onclick="window.saveOtherIncome()">Save Income</button>
+            <button id="incSaveBtn" class="btn btn-success" style="flex:1" onclick="window.saveOtherIncome()">Save Income</button>
             <button class="btn btn-danger" style="flex:1" onclick="document.getElementById('incomeModal').style.display='none'">Cancel</button>
         </div>
     </div>
@@ -1173,7 +1181,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS (UPDATED TO INCLUDE EXTRA INCOME) ---
+  // --- NEW: MONTHLY REPORTS (UPDATED TO INCLUDE EXTRA INCOME SEPARATELY) ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
@@ -1185,74 +1193,142 @@
       for(let i=1; i<=daysInMonth; i++) {
           const d = i < 10 ? '0'+i : i;
           const fullDate = `${monthInput}-${d}`;
-          // Initialize data structure with cashIncome and cashExpense
-          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0, cashIncome: 0, cashExpense: 0 };
+          // Initialize data structure with all fields
+          dailyData[fullDate] = { 
+              orders: 0, 
+              sales: 0, 
+              sweets: 0, // Sweets Collection
+              restCash: 0, // New
+              restOnline: 0, // New
+              showCash: 0, // New
+              showOnline: 0, // New
+              expense: 0 
+          };
       }
 
       globalOrders.forEach(o => {
           if(o.date.startsWith(monthInput)) {
-              dailyData[o.date].orders += 1;
-              dailyData[o.date].sales += parseFloat(o.total || 0);
+              if(dailyData[o.date]) {
+                  dailyData[o.date].orders += 1;
+                  dailyData[o.date].sales += parseFloat(o.total || 0);
+              }
           }
       });
 
       globalLedger.forEach(l => {
-          if(l.date.startsWith(monthInput)) {
+          if(l.date.startsWith(monthInput) && dailyData[l.date]) {
               const amt = parseFloat(l.amount || 0);
-              // Check if mode contains "Cash" or "Counter"
               const isCash = l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'));
 
-              // --- UPDATED: Also count EXTRA_INCOME ---
-              if(l.type === 'CREDIT' || l.type === 'EXTRA_INCOME') {
-                  dailyData[l.date].collection += amt;
-                  if(isCash) dailyData[l.date].cashIncome += amt;
+              if(l.type === 'CREDIT') {
+                  // Sweets Collection
+                  dailyData[l.date].sweets += amt;
               }
-              if(l.type === 'EXPENSE') {
+              else if(l.type === 'EXTRA_INCOME') {
+                  // Separate based on source AND mode
+                  if(l.source === 'Restaurant') {
+                      if(isCash) dailyData[l.date].restCash += amt;
+                      else dailyData[l.date].restOnline += amt;
+                  } else if(l.source === 'Showroom') {
+                      if(isCash) dailyData[l.date].showCash += amt;
+                      else dailyData[l.date].showOnline += amt;
+                  }
+              }
+              else if(l.type === 'EXPENSE') {
                   dailyData[l.date].expense += amt;
-                  if(isCash) dailyData[l.date].cashExpense += amt;
               }
           }
       });
 
-      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0, totalNetCash = 0;
-      Object.values(dailyData).forEach(d => {
-          totalOrders += d.orders;
-          totalSales += d.sales;
-          totalColl += d.collection;
-          totalExp += d.expense;
-          totalNetCash += (d.cashIncome - d.cashExpense); // Accumulate Net Cash
-      });
+      // Calculate Grand Totals
+      let grand = { orders:0, sales:0, sweets:0, restCash:0, restOnline:0, showCash:0, showOnline:0, totalColl:0, expense:0, net:0 };
 
-      const dash = document.getElementById('monthDashboard');
-      dash.innerHTML = `
-        <div class="summary-card" style="border-left-color: #3498db; background-color: #e1f5fe;"><h4>Total Orders</h4><div class="value">${totalOrders}</div></div>
-        <div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5;"><h4>Total Sales (Bill)</h4><div class="value">${window.formatMoney(totalSales)}</div></div>
-        <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalColl)}</div></div>
-        <div class="summary-card" style="border-left-color: #1565c0; background-color: #e3f2fd;"><h4>Total Cash</h4><div class="value">${window.formatMoney(totalNetCash)}</div></div>
-        <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
+      // Update Table Headers
+      const thead = document.querySelector('#monthTable thead');
+      thead.innerHTML = `
+        <tr>
+            <th style="width:10%">Date</th>
+            <th style="width:5%">Ord</th>
+            <th style="width:10%; text-align:right;">Sweets</th>
+            <th style="width:10%; text-align:right; color:#d35400;">Rest. Cash</th>
+            <th style="width:10%; text-align:right; color:#e67e22;">Rest. UPI</th>
+            <th style="width:10%; text-align:right; color:#8e44ad;">Show. Cash</th>
+            <th style="width:10%; text-align:right; color:#9b59b6;">Show. UPI</th>
+            <th style="width:10%; text-align:right; color:#27ae60; font-weight:bold;">Total Inc.</th>
+            <th style="width:10%; text-align:right; color:#c0392b;">Exp</th>
+            <th style="width:10%; text-align:right;">Net Profit</th>
+        </tr>
       `;
 
       const tbody = document.getElementById('monthTableBody');
       tbody.innerHTML = '';
+      
       Object.keys(dailyData).sort().forEach(date => {
           const d = dailyData[date];
-          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return;
+          if(d.orders === 0 && d.sales === 0 && d.sweets === 0 && d.restCash === 0 && d.restOnline === 0 && d.showCash === 0 && d.showOnline === 0 && d.expense === 0) return;
           
-          const net = d.collection - d.expense;
-          const netCashCounter = d.cashIncome - d.cashExpense; // Calculate Net Cash for the day
+          const totalDailyIncome = d.sweets + d.restCash + d.restOnline + d.showCash + d.showOnline;
+          const net = totalDailyIncome - d.expense;
+          
+          // Accumulate Grand Totals
+          grand.orders += d.orders;
+          grand.sales += d.sales;
+          grand.sweets += d.sweets;
+          grand.restCash += d.restCash;
+          grand.restOnline += d.restOnline;
+          grand.showCash += d.showCash;
+          grand.showOnline += d.showOnline;
+          grand.totalColl += totalDailyIncome;
+          grand.expense += d.expense;
+          grand.net += net;
 
           tbody.innerHTML += `
             <tr>
                 <td>${window.formatDate(date)}</td>
                 <td>${d.orders}</td>
-                <td style="text-align:right;">${window.formatMoney(d.sales)}</td>
-                <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td>
-                <td style="text-align:right; font-weight:bold; color:#1565c0;">${window.formatMoney(netCashCounter)}</td>
+                <td style="text-align:right; color:#2980b9;">${window.formatMoney(d.sweets)}</td>
+                
+                <td style="text-align:right; color:#d35400;">${window.formatMoney(d.restCash)}</td>
+                <td style="text-align:right; color:#e67e22;">${window.formatMoney(d.restOnline)}</td>
+                
+                <td style="text-align:right; color:#8e44ad;">${window.formatMoney(d.showCash)}</td>
+                <td style="text-align:right; color:#9b59b6;">${window.formatMoney(d.showOnline)}</td>
+                
+                <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(totalDailyIncome)}</td>
                 <td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td>
                 <td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td>
             </tr>
           `;
       });
+
+      // Add Footer Row (NICHE TOTAL)
+      tbody.innerHTML += `
+        <tr style="background:#f0f0f0; font-weight:bold; border-top:2px solid #333;">
+            <td>TOTAL</td>
+            <td>${grand.orders}</td>
+            <td style="text-align:right; color:#2980b9;">${window.formatMoney(grand.sweets)}</td>
+            
+            <td style="text-align:right; color:#d35400;">${window.formatMoney(grand.restCash)}</td>
+            <td style="text-align:right; color:#e67e22;">${window.formatMoney(grand.restOnline)}</td>
+            
+            <td style="text-align:right; color:#8e44ad;">${window.formatMoney(grand.showCash)}</td>
+            <td style="text-align:right; color:#9b59b6;">${window.formatMoney(grand.showOnline)}</td>
+            
+            <td style="text-align:right; color:#27ae60;">${window.formatMoney(grand.totalColl)}</td>
+            <td style="text-align:right; color:#c0392b;">${window.formatMoney(grand.expense)}</td>
+            <td style="text-align:right;">${window.formatMoney(grand.net)}</td>
+        </tr>
+      `;
+      
+      // Update Dashboard Cards with granular data (Can be simplified or detailed)
+      const dash = document.getElementById('monthDashboard');
+      dash.innerHTML = `
+        <div class="summary-card" style="border-left-color: #2980b9; background-color: #e1f5fe;"><h4>Sweets</h4><div class="value">${window.formatMoney(grand.sweets)}</div></div>
+        <div class="summary-card" style="border-left-color: #d35400; background-color: #fff3e0;"><h4>Restaurant</h4><div class="value">${window.formatMoney(grand.restCash + grand.restOnline)}</div></div>
+        <div class="summary-card" style="border-left-color: #8e44ad; background-color: #f3e5f5;"><h4>Showroom</h4><div class="value">${window.formatMoney(grand.showCash + grand.showOnline)}</div></div>
+        <div class="summary-card" style="border-left-color: #27ae60; background-color: #e8f5e9;"><h4>Total Income</h4><div class="value">${window.formatMoney(grand.totalColl)}</div></div>
+        <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(grand.net)}</div></div>
+      `;
 
       // --- RENDER EXTRA INCOME TABLE ---
       const extraTbody = document.querySelector('#otherIncomeTable tbody');
@@ -1266,13 +1342,43 @@
                 <td>${inc.source}</td>
                 <td style="font-weight:bold; color:green;">${window.formatMoney(inc.amount)}</td>
                 <td>${inc.mode}</td>
-                <td class="filter-controls-screen"><button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${inc.id}')">Del</button></td>
+                <td class="filter-controls-screen">
+                    <button class="btn-icon icon-edit" onclick="window.editIncome('${inc.id}')">✎</button>
+                    <button class="btn-icon icon-del" onclick="window.deleteTransaction('${inc.id}')">✖</button>
+                </td>
             </tr>`;
       });
   }
 
-  // --- NEW FUNCTION: SAVE OTHER INCOME ---
+  // --- NEW FUNCTIONS: OPEN, EDIT, SAVE OTHER INCOME ---
+  
+  window.openIncomeModal = () => {
+      document.getElementById('incId').value = '';
+      document.getElementById('incDate').value = today;
+      document.getElementById('incSource').value = 'Restaurant';
+      document.getElementById('incAmt').value = '';
+      document.getElementById('incMode').value = 'Cash'; // Default
+      document.getElementById('incModalTitle').innerText = "Add Other Daily Income";
+      document.getElementById('incSaveBtn').innerText = "Save Income";
+      document.getElementById('incomeModal').style.display='block';
+  }
+
+  window.editIncome = (id) => {
+      const inc = globalLedger.find(l => l.id === id);
+      if(!inc) return;
+      document.getElementById('incId').value = inc.id;
+      document.getElementById('incDate').value = inc.date;
+      document.getElementById('incSource').value = inc.source;
+      document.getElementById('incAmt').value = inc.amount;
+      document.getElementById('incMode').value = inc.mode;
+      
+      document.getElementById('incModalTitle').innerText = "Edit Income Entry";
+      document.getElementById('incSaveBtn').innerText = "Update Entry";
+      document.getElementById('incomeModal').style.display='block';
+  }
+
   window.saveOtherIncome = async () => {
+      const id = document.getElementById('incId').value || genId();
       const date = document.getElementById('incDate').value;
       const source = document.getElementById('incSource').value;
       const amount = parseFloat(document.getElementById('incAmt').value);
@@ -1280,25 +1386,31 @@
 
       if(!date || !amount) return alert("Please fill Date and Amount");
 
-      const id = genId();
-      await setDoc(doc(db, "ledger", id), {
+      const isEdit = document.getElementById('incId').value !== "";
+      
+      const data = {
           id: id,
           type: 'EXTRA_INCOME',
           date: date,
           amount: amount,
           source: source,
           mode: mode,
-          desc: `${source} Sales` 
-      });
+          desc: `${source} Sales`
+      };
+
+      if(isEdit) {
+          await updateDoc(doc(db, "ledger", id), data);
+      } else {
+          await setDoc(doc(db, "ledger", id), data);
+      }
 
       document.getElementById('incomeModal').style.display = 'none';
-      document.getElementById('incAmt').value = '';
-      alert("Income Added!");
+      alert(isEdit ? "Income Updated!" : "Income Added!");
   }
 
   // --- ACTIONS (DELETE/EDIT) ---
   window.deleteTransaction = async (id) => {
-      if(!confirm("Delete this payment? Cloud will update immediately.")) return;
+      if(!confirm("Delete this entry? Cloud will update immediately.")) return;
       await deleteDoc(doc(db, "ledger", id));
   }
 
