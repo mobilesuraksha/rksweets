@@ -559,6 +559,27 @@
 </div>
 
 <script type="module">
+  // --- 🔒 KILL SWITCH START 🔒 ---
+  // Agar file "file://" ya "localhost" par hai, to Browser Cache Clear karo aur Execution Stop karo
+  if (window.location.protocol === "file:") {
+      // 1. Clear saved data immediately
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 2. Show Block Message
+      document.body.innerHTML = `
+          <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; font-family:sans-serif; background:#f5f5f5;">
+              <h1 style="color:#555;">Cloud Access Only</h1>
+              <p>Security Restriction: Data cannot be loaded from local files.</p>
+              <p>Please open the official website link.</p>
+          </div>
+      `;
+      
+      // 3. Stop Script Execution (Data Fetch functions will never run)
+      throw new Error("Execution stopped: Local file access detected.");
+  }
+  // --- KILL SWITCH END ---
+
   // --- FIREBASE SETUP ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
   import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, onSnapshot, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
@@ -601,15 +622,12 @@
       });
   };
 
-  // --- MANAGE VISIBILITY BASED ON AUTH ---
   onAuthStateChanged(auth, (user) => {
       if (user) {
-          // USER IS LOGGED IN
           document.getElementById('loginOverlay').style.display = 'none';
           document.getElementById('mainApp').style.display = 'block';
           startDataSync(); 
       } else {
-          // USER IS LOGGED OUT
           document.getElementById('loginOverlay').style.display = 'flex';
           document.getElementById('mainApp').style.display = 'none';
       }
@@ -619,7 +637,7 @@
   function startDataSync() {
       onSnapshot(collection(db, "orders"), (snapshot) => {
           globalOrders = snapshot.docs.map(doc => doc.data());
-          updateSuggestions(); // Update autocomplete
+          updateSuggestions(); // Update the suggestions list
           refreshCurrentTab();
           updateStats();
       });
@@ -630,7 +648,7 @@
       });
   }
   
-  // Update Suggestion Lists for OrderNo and CustomerName
+  // New: Update Suggestion Lists
   function updateSuggestions() {
       const orderList = document.getElementById('orderNoList');
       const custList = document.getElementById('custList');
@@ -806,7 +824,7 @@
       const existingOrder = globalOrders.find(o => o.no === orderNo);
       let isDuplicateMerge = false;
 
-      // --- DUPLICATE CHECK / MERGE LOGIC ---
+      // --- DUPLICATE CHECK LOGIC ---
       if(existingOrder && !document.getElementById('orderId').value) {
           if(confirm(`⚠️ Order No "${orderNo}" already exists for customer "${existingOrder.cust}".\n\nDo you want to ADD these new items to their account? (Yes = Merge, No = Cancel)`)) {
               isDuplicateMerge = true;
@@ -898,6 +916,9 @@
               // Ledger Logic for New/Edit
               if(isEdit) {
                  // For edit, we update the PRIMARY debit entry.
+                 // (Note: If user used "Merge" before, there might be multiple debits. 
+                 // This basic Edit only updates the PRIMARY one usually. 
+                 // For complexity sake, we assume simple edits here).
                  const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
                  if(existingDebit) {
                      await updateDoc(doc(db, "ledger", existingDebit.id), {
@@ -945,7 +966,7 @@
       }
   });
 
-  // --- RENDER FUNCTIONS (Same as before) ---
+  // --- RENDER FUNCTIONS (Kept same) ---
   window.renderProduction = () => {
       const date = document.getElementById('prodDateFilter').value;
       const search = document.getElementById('prodSearchFilter').value.toLowerCase();
@@ -1074,7 +1095,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- MONTHLY REPORTS ---
+  // --- NEW: MONTHLY REPORTS ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
