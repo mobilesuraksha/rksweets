@@ -202,13 +202,17 @@
         <form id="orderForm">
             <input type="hidden" id="orderId">
             <div class="form-row">
-                <div class="form-group"><label>Order No.</label><input type="text" id="orderNo" required></div>
+                <div class="form-group"><label>Order No.</label><input type="text" id="orderNo" list="orderNoList" autocomplete="off" required></div>
+                <datalist id="orderNoList"></datalist>
+
                 <div class="form-group"><label>Date</label><input type="date" id="orderDate" required></div>
                 <div class="form-group"><label>Delivery Date</label><input type="date" id="deliveryDate" required></div>
                 <div class="form-group"><label>Delivery Time</label><input type="time" id="deliveryTime"></div>
             </div>
             <div class="form-row">
-                <div class="form-group" style="flex: 2;"><label>Customer Name</label><input type="text" id="customerName" required></div>
+                <div class="form-group" style="flex: 2;"><label>Customer Name</label><input type="text" id="customerName" list="custList" autocomplete="off" required></div>
+                <datalist id="custList"></datalist>
+
                 <div class="form-group"><label>Mobile</label><input type="tel" id="mobile"></div>
                 <div class="form-group">
                     <label>Order Type</label>
@@ -237,7 +241,7 @@
                     <input type="number" id="discount" value="0" oninput="window.calculateGrandTotal()">
                 </div>
                 <div class="form-group">
-                    <label style="color:#27ae60; font-weight:bold;">Net Bill Amount</label>
+                    <label style="color:#27ae60; font-weight:bold;">Net Amount</label>
                     <input type="number" id="totalAmount" readonly>
                 </div>
             </div>
@@ -569,16 +573,15 @@
     appId: "1:512484078712:web:d8f3470bd22dd37f63e98d"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   const auth = getAuth(app);
 
-  // --- GLOBAL DATA STORAGE ---
+  // --- GLOBAL DATA ---
   let globalOrders = [];
   let globalLedger = [];
 
-  // --- AUTH FUNCTIONS ---
+  // --- AUTH ---
   window.appLogin = async () => {
       const email = document.getElementById('loginEmail').value;
       const pass = document.getElementById('loginPass').value;
@@ -598,32 +601,45 @@
       });
   };
 
-  // Monitor Auth State
+  // --- MANAGE VISIBILITY BASED ON AUTH ---
   onAuthStateChanged(auth, (user) => {
       if (user) {
+          // USER IS LOGGED IN
           document.getElementById('loginOverlay').style.display = 'none';
           document.getElementById('mainApp').style.display = 'block';
-          startDataSync(); // Start downloading data from cloud
+          startDataSync(); 
       } else {
+          // USER IS LOGGED OUT
           document.getElementById('loginOverlay').style.display = 'flex';
           document.getElementById('mainApp').style.display = 'none';
       }
   });
 
-  // --- REAL-TIME DATABASE SYNC ---
+  // --- REAL-TIME SYNC ---
   function startDataSync() {
-      // Listen to Orders
       onSnapshot(collection(db, "orders"), (snapshot) => {
           globalOrders = snapshot.docs.map(doc => doc.data());
+          updateSuggestions(); // Update autocomplete
           refreshCurrentTab();
           updateStats();
       });
-      // Listen to Ledger
       onSnapshot(collection(db, "ledger"), (snapshot) => {
           globalLedger = snapshot.docs.map(doc => doc.data());
           refreshCurrentTab();
           updateStats();
       });
+  }
+  
+  // Update Suggestion Lists for OrderNo and CustomerName
+  function updateSuggestions() {
+      const orderList = document.getElementById('orderNoList');
+      const custList = document.getElementById('custList');
+      
+      const uniqueOrders = [...new Set(globalOrders.map(o => o.no))];
+      const uniqueCust = [...new Set(globalOrders.map(o => o.cust))];
+
+      orderList.innerHTML = uniqueOrders.map(o => `<option value="${o}">`).join('');
+      custList.innerHTML = uniqueCust.map(c => `<option value="${c}">`).join('');
   }
 
   function updateStats() {
@@ -657,7 +673,7 @@
   }
 
   window.formatMoney = (amount) => '₹' + parseFloat(amount).toFixed(2);
-  
+   
   window.formatDate = (dateStr) => {
       if(!dateStr) return '';
       const [y, m, d] = dateStr.split('-');
@@ -718,14 +734,7 @@
       document.getElementById(id).classList.add('active-print');
       btn.classList.add('active');
       
-      if(id === 'productionTab') window.renderProduction();
-      if(id === 'packingTab') window.renderPacking();
-      if(id === 'todaySummary') window.renderSummary();
-      if(id === 'monthReport') window.renderMonthReports();
-      if(id === 'duePayments') window.renderDuePayments();
-      if(id === 'allOrders') window.renderAllOrders();
-      if(id === 'ledgerTab') window.populateLedgerSelect();
-      if(id === 'expensesTab') window.renderExpenses();
+      refreshCurrentTab();
   }
 
   // --- ORDER LOGIC ---
@@ -792,6 +801,20 @@
 
   document.getElementById('orderForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      
+      const orderNo = document.getElementById('orderNo').value.trim();
+      const existingOrder = globalOrders.find(o => o.no === orderNo);
+      let isDuplicateMerge = false;
+
+      // --- DUPLICATE CHECK / MERGE LOGIC ---
+      if(existingOrder && !document.getElementById('orderId').value) {
+          if(confirm(`⚠️ Order No "${orderNo}" already exists for customer "${existingOrder.cust}".\n\nDo you want to ADD these new items to their account? (Yes = Merge, No = Cancel)`)) {
+              isDuplicateMerge = true;
+          } else {
+              return; // User cancelled
+          }
+      }
+
       const boxGroups = [];
       document.querySelectorAll('.box-group-container').forEach(group => {
           const items = [];
@@ -812,74 +835,117 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
-      // Check if Edit or New
-      let id = document.getElementById('orderId').value;
-      const isNew = !id;
-      if(isNew) id = genId();
+      // Set ID: Use existing if merging, else create new
+      let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
       
-      const subTotal = parseFloat(document.getElementById('subTotal').value) || 0;
-      const discount = parseFloat(document.getElementById('discount').value) || 0;
-      const total = parseFloat(document.getElementById('totalAmount').value);
+      const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
+      const currentDiscount = parseFloat(document.getElementById('discount').value) || 0;
+      const currentNewTotal = parseFloat(document.getElementById('totalAmount').value) || 0;
       
-      const newOrder = {
-          id: id,
-          no: document.getElementById('orderNo').value,
-          date: document.getElementById('orderDate').value,
-          delDate: document.getElementById('deliveryDate').value,
-          delTime: document.getElementById('deliveryTime').value,
-          cust: document.getElementById('customerName').value,
-          mobile: document.getElementById('mobile').value,
-          type: document.getElementById('orderType').value,
-          note: document.getElementById('orderRemark').value,
-          boxGroups: boxGroups,
-          subTotal: subTotal,
-          discount: discount,
-          total: total
-      };
-
       try {
-          await setDoc(doc(db, "orders", id), newOrder);
+          // --- LOGIC: NEW ORDER vs MERGE ORDER ---
+          if (isDuplicateMerge) {
+              // 1. Merge Box Groups
+              const updatedBoxGroups = [...existingOrder.boxGroups, ...boxGroups];
+              
+              // 2. Update Total Amount (Old Total + New Amount)
+              const oldTotal = parseFloat(existingOrder.total) || 0;
+              const newGrandTotal = oldTotal + currentNewTotal;
 
-          // Find existing Debit entry if edit
-          let debitEntryId = genId();
-          if(!isNew) {
-              const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
-              if(existingDebit) debitEntryId = existingDebit.id;
+              // 3. Update Order in Cloud
+              await updateDoc(doc(db, "orders", id), {
+                  boxGroups: updatedBoxGroups,
+                  total: newGrandTotal,
+                  delDate: document.getElementById('deliveryDate').value // Update delivery date to latest
+              });
+
+              // 4. Create NEW Ledger Entry for the ADDED Amount (Preserves old ledger)
+              const additionalDebitId = genId();
+              await setDoc(doc(db, "ledger", additionalDebitId), {
+                  id: additionalDebitId,
+                  type: 'DEBIT',
+                  orderId: id,
+                  cust: existingOrder.cust,
+                  date: document.getElementById('orderDate').value,
+                  amount: currentNewTotal,
+                  desc: `Order #${orderNo} (Added Items)`
+              });
+
+              alert(`Added new items to existing Order #${orderNo}.\nAccount debited by ₹${currentNewTotal}.`);
+
+          } else {
+              // --- NORMAL NEW ORDER (OR EDITING EXISTING) ---
+              const isEdit = document.getElementById('orderId').value !== "";
+              
+              const newOrder = {
+                  id: id,
+                  no: orderNo,
+                  date: document.getElementById('orderDate').value,
+                  delDate: document.getElementById('deliveryDate').value,
+                  delTime: document.getElementById('deliveryTime').value,
+                  cust: document.getElementById('customerName').value,
+                  mobile: document.getElementById('mobile').value,
+                  type: document.getElementById('orderType').value,
+                  note: document.getElementById('orderRemark').value,
+                  boxGroups: boxGroups,
+                  subTotal: currentItemsSubTotal,
+                  discount: currentDiscount,
+                  total: currentNewTotal
+              };
+              
+              await setDoc(doc(db, "orders", id), newOrder);
+
+              // Ledger Logic for New/Edit
+              if(isEdit) {
+                 // For edit, we update the PRIMARY debit entry.
+                 const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
+                 if(existingDebit) {
+                     await updateDoc(doc(db, "ledger", existingDebit.id), {
+                         amount: currentNewTotal,
+                         cust: newOrder.cust,
+                         date: newOrder.date
+                     });
+                 }
+              } else {
+                  // Fresh Order -> One fresh Debit entry
+                  const debitEntryId = genId();
+                  await setDoc(doc(db, "ledger", debitEntryId), {
+                      id: debitEntryId, 
+                      type:'DEBIT', 
+                      orderId: id, 
+                      cust: newOrder.cust, 
+                      date: newOrder.date, 
+                      amount: currentNewTotal, 
+                      desc: 'Order #'+newOrder.no + (currentDiscount>0 ? ' (Disc: '+currentDiscount+')' : '')
+                  });
+              }
+              alert('Order Saved to Cloud!');
           }
 
-          const debitEntry = {
-              id: debitEntryId, 
-              type:'DEBIT', 
-              orderId: id, 
-              cust: newOrder.cust, 
-              date: newOrder.date, 
-              amount: total, 
-              desc: 'Order #'+newOrder.no + (discount>0 ? ' (Disc: '+discount+')' : '')
-          };
-          await setDoc(doc(db, "ledger", debitEntryId), debitEntry);
-
+          // Handle Advance Payment (Common for both)
           const adv = parseFloat(document.getElementById('advancePaid').value);
-          if(isNew && adv > 0) {
-               const payDate = document.getElementById('advanceDate').value || newOrder.date;
+          if(adv > 0) {
+               const payDate = document.getElementById('advanceDate').value || today;
                const payId = genId();
                await setDoc(doc(db, "ledger", payId), {
-                   id: payId, type:'CREDIT', orderId: id, cust: newOrder.cust, date: payDate, amount: adv, mode: document.getElementById('paymentMode').value, desc: 'Advance Payment'
+                   id: payId, type:'CREDIT', orderId: id, cust: document.getElementById('customerName').value, date: payDate, amount: adv, mode: document.getElementById('paymentMode').value, desc: 'Advance/Payment'
                });
           }
 
-          alert('Order Saved to Cloud!');
+          // Reset Form
           this.reset();
           document.getElementById('boxContainer').innerHTML = '';
           window.addBoxGroup();
           document.getElementById('orderId').value = '';
           document.getElementById('orderDate').value = today;
           document.getElementById('deliveryDate').value = today;
+
       } catch(err) {
           alert("Error saving: " + err.message);
       }
   });
 
-  // --- RENDER FUNCTIONS ---
+  // --- RENDER FUNCTIONS (Same as before) ---
   window.renderProduction = () => {
       const date = document.getElementById('prodDateFilter').value;
       const search = document.getElementById('prodSearchFilter').value.toLowerCase();
@@ -1008,7 +1074,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS ---
+  // --- MONTHLY REPORTS ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
@@ -1278,7 +1344,7 @@
       a.download = 'RamKishanSweets_Backup.json';
       a.click();
   }
-  
+   
   window.importData = (input) => {
       const file = input.files[0];
       if (!file) return;
