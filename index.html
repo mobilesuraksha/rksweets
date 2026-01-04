@@ -22,7 +22,6 @@
             background: white; padding: 40px; border-radius: 10px; width: 350px; text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        .login-box h2 { border: none; padding: 0; margin-bottom: 20px; color: #333; }
         .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         
         /* --- TABS --- */
@@ -39,8 +38,10 @@
         .tab-button[onclick*="productionTab"].active { background-color: #d35400; color: white; }
         .tab-button[onclick*="packingTab"] { background-color: #e8f5e9; color: #2e7d32; }
         .tab-button[onclick*="packingTab"].active { background-color: #2e7d32; color: white; }
-        .tab-button[onclick*="expensesTab"] { background-color: #ffebee; color: #c62828; }
-        .tab-button[onclick*="expensesTab"].active { background-color: #c62828; color: white; }
+        .tab-button[onclick*="monthReport"] { background-color: #e0f7fa; color: #006064; }
+        .tab-button[onclick*="monthReport"].active { background-color: #006064; color: white; }
+        .tab-button[onclick*="reportsTab"] { background-color: #f3e5f5; color: #6a1b9a; }
+        .tab-button[onclick*="reportsTab"].active { background-color: #6a1b9a; color: white; }
 
         .tab-content { display: none; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -54,6 +55,18 @@
             font-family: inherit; font-size: 14px; transition: border 0.3s;
         }
         input:focus, select:focus { border-color: #3498db; outline: none; box-shadow: 0 0 5px rgba(52,152,219,0.3); }
+
+        /* --- ADMIN CARDS --- */
+        .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .admin-card {
+            background: white; border-radius: 10px; padding: 25px; text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; border-top: 4px solid #ccc;
+        }
+        .admin-card:hover { transform: translateY(-5px); }
+        .admin-card h3 { margin: 10px 0; font-size: 18px; color: #444; }
+        .admin-card p { color: #777; font-size: 12px; margin-bottom: 20px; height: 30px; }
+        .stat-badge { background: #eee; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .icon-large { font-size: 40px; margin-bottom: 10px; display: block; }
 
         /* --- BOX GROUP STYLING --- */
         .box-group-container {
@@ -84,7 +97,7 @@
         .data-table th { background-color: #f2f2f2; color: #333; font-weight: 600; }
         
         /* Summary Dashboard */
-        #summaryDashboard { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        #summaryDashboard, #monthDashboard { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
         .summary-card { 
             flex: 1; min-width: 160px; padding: 15px; border-radius: 8px; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #ccc; background-color: white; 
@@ -145,7 +158,7 @@
             .ls-item { border: 1px solid #000; background: white !important; min-width: 120px; padding: 5px 10px; box-shadow: none; border-radius: 0; }
             .ls-item h4 { font-size: 10px; margin-bottom: 2px; }
             .ls-item .value { font-size: 14px; }
-            #summaryDashboard { gap: 5px; margin-bottom: 10px; }
+            #summaryDashboard, #monthDashboard { gap: 5px; margin-bottom: 10px; }
             .summary-card { padding: 5px; border: 1px solid #999 !important; box-shadow: none !important; min-width: 80px; }
         }
         
@@ -176,10 +189,12 @@
         <button class="tab-button" onclick="window.openTab('productionTab', this)">Production</button>
         <button class="tab-button" onclick="window.openTab('packingTab', this)">Packing</button>
         <button class="tab-button" onclick="window.openTab('todaySummary', this)">Today's Summary</button>
+        <button class="tab-button" onclick="window.openTab('monthReport', this)">Monthly Report</button>
         <button class="tab-button" onclick="window.openTab('duePayments', this)">Due Payments</button>
         <button class="tab-button" onclick="window.openTab('allOrders', this)">All Orders</button>
         <button class="tab-button" onclick="window.openTab('ledgerTab', this)">Customer Ledger</button>
         <button class="tab-button" onclick="window.openTab('expensesTab', this)">Expenses</button>
+        <button class="tab-button" onclick="window.openTab('reportsTab', this)">System Admin</button>
     </div>
 
     <div id="addOrder" class="tab-content active-print" style="display: block;">
@@ -334,6 +349,37 @@
         </div>
     </div>
 
+    <div id="monthReport" class="tab-content">
+        <h2>Monthly Reports</h2>
+        <div class="print-header-date" id="printDateMonth"></div>
+        <div class="form-row filter-controls-screen">
+            <div class="form-group">
+                <label>Select Month</label>
+                <input type="month" id="monthInput" onchange="window.renderMonthReports()">
+            </div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn btn-primary" onclick="window.print()">Print Report</button>
+            </div>
+        </div>
+
+        <div id="monthDashboard"></div>
+
+        <h3 style="margin-top:20px;">Daily Breakdown</h3>
+        <table class="data-table" id="monthTable">
+            <thead>
+                <tr>
+                    <th style="width:15%">Date</th>
+                    <th style="width:15%">Orders Placed</th>
+                    <th style="width:20%; text-align:right;">Total Sales (Billed)</th>
+                    <th style="width:20%; text-align:right; color:#27ae60;">Collection (Cash In)</th>
+                    <th style="width:20%; text-align:right; color:#c0392b;">Expenses (Cash Out)</th>
+                    <th style="width:10%; text-align:right;">Net Cash</th>
+                </tr>
+            </thead>
+            <tbody id="monthTableBody"></tbody>
+        </table>
+    </div>
+
     <div id="duePayments" class="tab-content">
         <h2>Due Payments</h2>
         <div class="form-row filter-controls-screen" style="background:#fff3e0; padding:10px; border-radius:8px;">
@@ -447,6 +493,36 @@
             </table>
         </div>
     </div>
+
+    <div id="reportsTab" class="tab-content">
+        <h2>System Administration</h2>
+        <div class="admin-grid">
+            <div class="admin-card" style="border-top-color: #f39c12;">
+                <span class="icon-large">📂</span>
+                <h3>Backup Data (Export)</h3>
+                <p>Download all cloud data to your PC.</p>
+                <button class="btn btn-warning" onclick="window.exportData()">Download Backup</button>
+            </div>
+
+            <div class="admin-card" style="border-top-color: #3498db;">
+                <span class="icon-large">📥</span>
+                <h3>Restore Data (Import)</h3>
+                <p>Load data from a backup file to Cloud.</p>
+                <button class="btn btn-primary" onclick="document.getElementById('importFile').click()">Restore Backup</button>
+                <input type="file" id="importFile" style="display:none" onchange="window.importData(this)">
+            </div>
+
+            <div class="admin-card" style="border-top-color: #27ae60;">
+                <span class="icon-large">📊</span>
+                <h3>Cloud Status</h3>
+                <p>Status of your current database.</p>
+                <div style="text-align:left; padding:0 15px;">
+                    <div style="margin-bottom:5px;">Orders: <span class="stat-badge" id="statOrders">0</span></div>
+                    <div>Ledger Entries: <span class="stat-badge" id="statLedger">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="payModal" class="modal">
@@ -481,7 +557,7 @@
 <script type="module">
   // --- FIREBASE SETUP ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, onSnapshot, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -499,7 +575,6 @@
   const auth = getAuth(app);
 
   // --- GLOBAL DATA STORAGE ---
-  // We keep data in these global arrays so existing logic works, but they are synced from Cloud
   let globalOrders = [];
   let globalLedger = [];
 
@@ -541,19 +616,26 @@
       onSnapshot(collection(db, "orders"), (snapshot) => {
           globalOrders = snapshot.docs.map(doc => doc.data());
           refreshCurrentTab();
+          updateStats();
       });
       // Listen to Ledger
       onSnapshot(collection(db, "ledger"), (snapshot) => {
           globalLedger = snapshot.docs.map(doc => doc.data());
           refreshCurrentTab();
+          updateStats();
       });
   }
 
+  function updateStats() {
+      document.getElementById('statOrders').innerText = globalOrders.length;
+      document.getElementById('statLedger').innerText = globalLedger.length;
+  }
+
   function refreshCurrentTab() {
-      // Which tab is active?
       if(document.getElementById('productionTab').style.display === 'block') window.renderProduction();
       if(document.getElementById('packingTab').style.display === 'block') window.renderPacking();
       if(document.getElementById('todaySummary').style.display === 'block') window.renderSummary();
+      if(document.getElementById('monthReport').style.display === 'block') window.renderMonthReports();
       if(document.getElementById('duePayments').style.display === 'block') window.renderDuePayments();
       if(document.getElementById('allOrders').style.display === 'block') window.renderAllOrders();
       if(document.getElementById('ledgerTab').style.display === 'block') window.renderLedger();
@@ -625,6 +707,7 @@
       document.querySelectorAll('input[type="date"]').forEach(i => {
           if(!i.id.includes('search') && !i.id.includes('dueDetail')) i.value = today;
       });
+      document.getElementById('monthInput').value = new Date().toISOString().slice(0, 7);
       window.addBoxGroup(); 
   };
 
@@ -638,6 +721,7 @@
       if(id === 'productionTab') window.renderProduction();
       if(id === 'packingTab') window.renderPacking();
       if(id === 'todaySummary') window.renderSummary();
+      if(id === 'monthReport') window.renderMonthReports();
       if(id === 'duePayments') window.renderDuePayments();
       if(id === 'allOrders') window.renderAllOrders();
       if(id === 'ledgerTab') window.populateLedgerSelect();
@@ -754,10 +838,8 @@
       };
 
       try {
-          // SAVE ORDER TO FIRESTORE
           await setDoc(doc(db, "orders", id), newOrder);
 
-          // HANDLE LEDGER (Bill Entry)
           // Find existing Debit entry if edit
           let debitEntryId = genId();
           if(!isNew) {
@@ -776,7 +858,6 @@
           };
           await setDoc(doc(db, "ledger", debitEntryId), debitEntry);
 
-          // HANDLE ADVANCE
           const adv = parseFloat(document.getElementById('advancePaid').value);
           if(isNew && adv > 0) {
                const payDate = document.getElementById('advanceDate').value || newOrder.date;
@@ -853,7 +934,6 @@
       
       let totalInc = 0, totalExp = 0, modeCounts = {}; 
 
-      // Calc Totals
       globalLedger.forEach(l => {
           if(l.date === date) {
               const amt = parseFloat(l.amount) || 0;
@@ -867,7 +947,6 @@
           }
       });
 
-      // Render Boxes
       const dash = document.getElementById('summaryDashboard');
       let boxesHtml = `
           <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalInc)}</div></div>
@@ -884,7 +963,6 @@
       }
       dash.innerHTML = boxesHtml;
 
-      // Render Order Table
       const tbody = document.querySelector('#summaryTable tbody');
       tbody.innerHTML = '';
       const uniqueOrds = [...new Set(globalLedger.filter(l => l.date === date && l.orderId).map(t=>t.orderId))];
@@ -922,13 +1000,82 @@
           }
       });
 
-      // Render Expense Table
       const expTbody = document.querySelector('#summaryExpenseTable tbody');
       expTbody.innerHTML = '';
       globalLedger.filter(l => l.type === 'EXPENSE' && l.date === date).forEach(ex => {
            expTbody.innerHTML += `<tr><td>${ex.desc}</td><td>${ex.mode}</td><td style="font-weight:bold; color:#c0392b;">${window.formatMoney(ex.amount)}</td></tr>`;
       });
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
+  }
+
+  // --- NEW: MONTHLY REPORTS ---
+  window.renderMonthReports = () => {
+      const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
+      if(!monthInput) return;
+      document.getElementById('printDateMonth').innerText = "Monthly Report: " + monthInput;
+
+      // 1. Filter Data
+      const daysInMonth = new Date(monthInput.split('-')[0], monthInput.split('-')[1], 0).getDate();
+      const dailyData = {};
+
+      for(let i=1; i<=daysInMonth; i++) {
+          const d = i < 10 ? '0'+i : i;
+          const fullDate = `${monthInput}-${d}`;
+          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0 };
+      }
+
+      // Fill Data from Ledger & Orders
+      globalOrders.forEach(o => {
+          if(o.date.startsWith(monthInput)) {
+              dailyData[o.date].orders += 1;
+              dailyData[o.date].sales += parseFloat(o.total || 0);
+          }
+      });
+
+      globalLedger.forEach(l => {
+          if(l.date.startsWith(monthInput)) {
+              const amt = parseFloat(l.amount || 0);
+              if(l.type === 'CREDIT') dailyData[l.date].collection += amt;
+              if(l.type === 'EXPENSE') dailyData[l.date].expense += amt;
+          }
+      });
+
+      // 2. Render Dashboard Totals
+      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0;
+      Object.values(dailyData).forEach(d => {
+          totalOrders += d.orders;
+          totalSales += d.sales;
+          totalColl += d.collection;
+          totalExp += d.expense;
+      });
+
+      const dash = document.getElementById('monthDashboard');
+      dash.innerHTML = `
+        <div class="summary-card" style="border-left-color: #3498db; background-color: #e1f5fe;"><h4>Total Orders</h4><div class="value">${totalOrders}</div></div>
+        <div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5;"><h4>Total Sales (Bill)</h4><div class="value">${window.formatMoney(totalSales)}</div></div>
+        <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalColl)}</div></div>
+        <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Total Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
+        <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET CASH PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
+      `;
+
+      // 3. Render Table
+      const tbody = document.getElementById('monthTableBody');
+      tbody.innerHTML = '';
+      Object.keys(dailyData).sort().forEach(date => {
+          const d = dailyData[date];
+          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return; // Skip empty days
+          const net = d.collection - d.expense;
+          tbody.innerHTML += `
+            <tr>
+                <td>${window.formatDate(date)}</td>
+                <td>${d.orders}</td>
+                <td style="text-align:right;">${window.formatMoney(d.sales)}</td>
+                <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td>
+                <td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td>
+                <td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td>
+            </tr>
+          `;
+      });
   }
 
   // --- ACTIONS (DELETE/EDIT) ---
@@ -939,9 +1086,7 @@
 
   window.deleteOrder = async (id) => {
       if(confirm("DELETE ORDER? This removes the order and ALL its ledger entries from Cloud.")) {
-          // Delete Order
           await deleteDoc(doc(db, "orders", id));
-          // Delete all associated ledger entries
           const relatedLedger = globalLedger.filter(l => l.orderId === id);
           relatedLedger.forEach(async (l) => {
               await deleteDoc(doc(db, "ledger", l.id));
@@ -1123,6 +1268,50 @@
       await setDoc(doc(db, "ledger", id), { id: id, type: 'EXPENSE', date: date, amount: amt, desc: desc, mode: mode });
       document.getElementById('expAmt').value = '';
       alert("Expense Added");
+  }
+
+  // --- IMPORT/EXPORT (SYSTEM ADMIN) ---
+  window.exportData = () => {
+      const data = {orders: globalOrders, ledger: globalLedger};
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+      a.download = 'RamKishanSweets_Backup.json';
+      a.click();
+  }
+  
+  window.importData = (input) => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+          try {
+              if(!confirm("⚠️ WARNING: This will overwrite/merge cloud data. Continue?")) return;
+              const data = JSON.parse(e.target.result);
+              
+              const batch = writeBatch(db);
+              let count = 0;
+              
+              if (data.orders) {
+                  data.orders.forEach(o => {
+                      const ref = doc(db, "orders", o.id);
+                      batch.set(ref, o);
+                      count++;
+                  });
+              }
+              if (data.ledger) {
+                  data.ledger.forEach(l => {
+                      const ref = doc(db, "ledger", l.id);
+                      batch.set(ref, l);
+                      count++;
+                  });
+              }
+              await batch.commit();
+              alert(`Successfully Restored ${count} records to Cloud!`);
+          } catch (err) {
+              alert('Error importing: ' + err.message);
+          }
+      };
+      reader.readAsText(file);
   }
 
 </script>
