@@ -382,7 +382,7 @@
                     <th style="width:18%; text-align:right; color:#27ae60;">Total Collection</th>
                     <th style="width:15%; text-align:right; color:#1565c0; font-weight:bold;">Cash (Counter)</th>
                     <th style="width:15%; text-align:right; color:#c0392b;">Expenses</th>
-                    <th style="width:12%; text-align:right;">Net Cash</th>
+                    <th style="width:12%; text-align:right;">Net Profit</th>
                 </tr>
             </thead>
             <tbody id="monthTableBody"></tbody>
@@ -1087,7 +1087,7 @@
 
   // --- NEW: MONTHLY REPORTS (UPDATED WITH CASH COLUMN) ---
   window.renderMonthReports = () => {
-      const monthInput = document.getElementById('monthInput').value;
+      const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
       document.getElementById('printDateMonth').innerText = "Monthly Report: " + monthInput;
 
@@ -1097,7 +1097,8 @@
       for(let i=1; i<=daysInMonth; i++) {
           const d = i < 10 ? '0'+i : i;
           const fullDate = `${monthInput}-${d}`;
-          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0, cashOnly: 0 };
+          // Initialize data structure with cashIncome and cashExpense
+          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0, cashIncome: 0, cashExpense: 0 };
       }
 
       globalOrders.forEach(o => {
@@ -1110,24 +1111,27 @@
       globalLedger.forEach(l => {
           if(l.date.startsWith(monthInput)) {
               const amt = parseFloat(l.amount || 0);
+              // Check if mode contains "Cash" or "Counter"
+              const isCash = l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'));
+
               if(l.type === 'CREDIT') {
                   dailyData[l.date].collection += amt;
-                  // Calculate ONLY CASH
-                  if(l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'))) {
-                      dailyData[l.date].cashOnly += amt;
-                  }
+                  if(isCash) dailyData[l.date].cashIncome += amt;
               }
-              if(l.type === 'EXPENSE') dailyData[l.date].expense += amt;
+              if(l.type === 'EXPENSE') {
+                  dailyData[l.date].expense += amt;
+                  if(isCash) dailyData[l.date].cashExpense += amt;
+              }
           }
       });
 
-      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0, totalCash = 0;
+      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0, totalNetCash = 0;
       Object.values(dailyData).forEach(d => {
           totalOrders += d.orders;
           totalSales += d.sales;
           totalColl += d.collection;
           totalExp += d.expense;
-          totalCash += d.cashOnly;
+          totalNetCash += (d.cashIncome - d.cashExpense); // Accumulate Net Cash
       });
 
       const dash = document.getElementById('monthDashboard');
@@ -1135,8 +1139,8 @@
         <div class="summary-card" style="border-left-color: #3498db; background-color: #e1f5fe;"><h4>Total Orders</h4><div class="value">${totalOrders}</div></div>
         <div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5;"><h4>Total Sales (Bill)</h4><div class="value">${window.formatMoney(totalSales)}</div></div>
         <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalColl)}</div></div>
-        <div class="summary-card" style="border-left-color: #1565c0; background-color: #e3f2fd;"><h4>Total Cash (Counter)</h4><div class="value">${window.formatMoney(totalCash)}</div></div>
-        <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET CASH PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
+        <div class="summary-card" style="border-left-color: #1565c0; background-color: #e3f2fd;"><h4>Net Cash (In Hand)</h4><div class="value">${window.formatMoney(totalNetCash)}</div></div>
+        <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
       `;
 
       const tbody = document.getElementById('monthTableBody');
@@ -1144,14 +1148,17 @@
       Object.keys(dailyData).sort().forEach(date => {
           const d = dailyData[date];
           if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return;
+          
           const net = d.collection - d.expense;
+          const netCashCounter = d.cashIncome - d.cashExpense; // Calculate Net Cash for the day
+
           tbody.innerHTML += `
             <tr>
                 <td>${window.formatDate(date)}</td>
                 <td>${d.orders}</td>
                 <td style="text-align:right;">${window.formatMoney(d.sales)}</td>
                 <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td>
-                <td style="text-align:right; font-weight:bold; color:#1565c0;">${window.formatMoney(d.cashOnly)}</td>
+                <td style="text-align:right; font-weight:bold; color:#1565c0;">${window.formatMoney(netCashCounter)}</td>
                 <td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td>
                 <td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td>
             </tr>
