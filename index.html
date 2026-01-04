@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ram Kishan's Sweets - Cloud Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- GENERAL STYLES --- */
+        body { font-family: 'Poppins', sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 1400px; margin: 20px auto; padding: 25px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); border-radius: 12px; }
+        h1 { color: #2c3e50; font-weight: 700; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 25px; }
+        h2 { color: #34495e; font-weight: 600; margin-top: 0; margin-bottom: 20px; border-left: 5px solid #3498db; padding-left: 10px; }
+
+        /* --- LOGIN OVERLAY --- */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.95); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .login-box {
+            background: white; padding: 40px; border-radius: 10px; width: 350px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .login-box h2 { border: none; padding: 0; margin-bottom: 20px; color: #333; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        
+        /* --- TABS --- */
+        .tab-menu { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 25px; border-bottom: 2px solid #e0e0e0; }
+        .tab-button {
+            background-color: #f1f1f1; border: none; outline: none; cursor: pointer; padding: 12px 20px;
+            transition: 0.3s; font-size: 14px; font-weight: 600; color: #555; border-radius: 5px 5px 0 0; flex-grow: 1; text-align: center;
+        }
+        .tab-button:hover { background-color: #ddd; color: #000; }
+        .tab-button.active { background-color: #3498db; color: white; }
+        
+        /* Tab Colors */
+        .tab-button[onclick*="productionTab"] { background-color: #fff3e0; color: #d35400; }
+        .tab-button[onclick*="productionTab"].active { background-color: #d35400; color: white; }
+        .tab-button[onclick*="packingTab"] { background-color: #e8f5e9; color: #2e7d32; }
+        .tab-button[onclick*="packingTab"].active { background-color: #2e7d32; color: white; }
+        .tab-button[onclick*="expensesTab"] { background-color: #ffebee; color: #c62828; }
+        .tab-button[onclick*="expensesTab"].active { background-color: #c62828; color: white; }
+
+        .tab-content { display: none; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- FORMS & INPUTS --- */
+        .form-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
+        .form-group { flex: 1; min-width: 150px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #666; }
+        input, select, textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+            font-family: inherit; font-size: 14px; transition: border 0.3s;
+        }
+        input:focus, select:focus { border-color: #3498db; outline: none; box-shadow: 0 0 5px rgba(52,152,219,0.3); }
+
+        /* --- BOX GROUP STYLING --- */
+        .box-group-container {
+            border: 2px solid #3498db; background-color: #f0f8ff; border-radius: 8px; padding: 15px; margin-bottom: 20px; position: relative;
+        }
+        .box-group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #b3e5fc; }
+        .box-group-title { font-weight: 700; color: #2980b9; font-size: 16px; }
+        .item-list-container { background-color: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+        .item-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
+        
+        #subTotal, #totalAmount, #balanceShow { background-color: #eaf2f8; color: #2980b9; font-weight: 700; cursor: not-allowed; }
+        #totalAmount { background-color: #d1f2eb; color: #27ae60; font-size: 16px; border: 2px solid #27ae60; }
+        #balanceShow { background-color: #fef9e7; color: #d35400; }
+
+        /* Buttons */
+        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 13px; }
+        .btn-success { background-color: #27ae60; color: white; width: 100%; margin-top: 10px; font-size: 16px; padding:12px; }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-logout { background-color: #34495e; color: white; float: right; margin-top: -60px; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+        /* Tables */
+        .table-responsive { overflow-x: auto; margin-top: 20px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; background-color: white; table-layout: fixed; }
+        .data-table th, .data-table td { padding: 8px 10px; border: 1px solid #eee; text-align: left; vertical-align: top; word-wrap: break-word;}
+        .data-table th { background-color: #f2f2f2; color: #333; font-weight: 600; }
+        
+        /* Summary Dashboard */
+        #summaryDashboard { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .summary-card { 
+            flex: 1; min-width: 160px; padding: 15px; border-radius: 8px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #ccc; background-color: white; 
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        .summary-card h4 { margin: 0 0 5px 0; font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-card .value { font-size: 20px; font-weight: 700; color: #333; }
+
+        /* Stacked Payment Badges with Actions */
+        .mode-badge {
+            display: block; width: 100%; padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-bottom: 5px;
+            box-sizing: border-box; border-left-width: 4px !important; position: relative;
+        }
+        .badge-actions { float: right; }
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 14px; padding: 0 2px; margin-left: 3px; font-weight: bold; }
+        .btn-icon:hover { opacity: 0.7; }
+        .icon-edit { color: #2980b9; }
+        .icon-del { color: #c0392b; }
+
+        /* Ledger Summary Bar */
+        .ledger-summary-grid { display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px; }
+        .ls-item { flex: 0 0 auto; min-width: 180px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); background-color: white; border-left: 5px solid #ccc; }
+        .ls-item h4 { margin: 0 0 5px 0; font-size: 12px; color: #666; text-transform: uppercase; }
+        .ls-item .value { font-size: 20px; font-weight: 700; color: #333; }
+        .ls-item.debit { border-left-color: #2196f3; background-color: #e3f2fd; } 
+        .ls-item.credit { border-left-color: #4caf50; background-color: #e8f5e9; } 
+        .ls-item.balance { border-left-color: #f44336; background-color: #ffebee; }
+
+        /* --- PRINT STYLES --- */
+        .ledger-print-head { display: none; }
+        .print-header-date { display: none; }
+        .print-footer { display: none; }
+
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body { background-color: white; font-size: 12px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; width: 100%; border: none; }
+            .tab-menu, .btn, .filter-controls-screen, h1, #reportsTab, .badge-actions { display: none !important; }
+            .tab-content { display: none; }
+            .tab-content.active-print { display: block !important; }
+            .data-table { font-size: 11px; width: 100%; border: 1px solid #000; }
+            .data-table th, .data-table td { border: 1px solid #000 !important; color: black; padding: 5px !important; }
+            .data-table th { background-color: #eee !important; font-weight: bold; }
+            .print-header-date { display: block !important; font-size: 14px; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
+            h2 { font-size: 16px !important; margin: 5px 0 10px 0 !important; border: none !important; padding: 0 !important; text-align: center; text-transform: uppercase; }
+            .print-footer { display: flex !important; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
+            .print-footer span { border-top: 1px solid #000; padding-top: 5px; width: 200px; text-align: center; font-weight: bold; }
+            
+            #ledgerTab .ledger-print-head { display: block !important; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            #ledgerTab h2 { display: none; }
+            .lp-company-name { font-size: 26px; font-weight: 800; text-align: center; margin: 0; color: #000; letter-spacing: 1px; }
+            .lp-subtitle { text-align: center; font-size: 12px; margin: 2px 0 15px 0; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #ccc; padding-bottom: 5px; width: 50%; margin: 0 auto; }
+            .ledger-info-grid { display: flex; justify-content: space-between; margin-top: 20px; border: 1px solid #000; padding: 10px; background-color: #f9f9f9 !important; }
+            .ledger-box { width: 48%; }
+            .ledger-box strong { display: block; font-size: 13px; margin-bottom: 5px; text-decoration: underline; }
+            #ledgerTab .data-table th { background-color: #333 !important; color: white !important; }
+            .ledger-summary-grid { border-top: 2px solid #000; margin-top: 10px; justify-content: flex-end; gap: 10px; }
+            .ls-item { border: 1px solid #000; background: white !important; min-width: 120px; padding: 5px 10px; box-shadow: none; border-radius: 0; }
+            .ls-item h4 { font-size: 10px; margin-bottom: 2px; }
+            .ls-item .value { font-size: 14px; }
+            #summaryDashboard { gap: 5px; margin-bottom: 10px; }
+            .summary-card { padding: 5px; border: 1px solid #999 !important; box-shadow: none !important; min-width: 80px; }
+        }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 10% auto; padding: 25px; width: 90%; max-width: 400px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <div class="login-box">
+        <h2 style="color:#3498db; border-bottom:2px solid #3498db; padding-bottom:10px;">SECURE LOGIN</h2>
+        <p>Ram Kishan's Sweets</p>
+        <input type="email" id="loginEmail" placeholder="Enter Email" value="">
+        <input type="password" id="loginPass" placeholder="Enter Password" value="">
+        <button class="btn btn-primary" style="width:100%; font-size:16px;" onclick="window.appLogin()">Login System</button>
+        <p id="loginMsg" style="color:red; font-size:12px; margin-top:10px;"></p>
+    </div>
+</div>
+
+<div class="container" id="mainApp" style="display:none;">
+    <h1>Ram Kishan's Sweets - Cloud Manager</h1>
+    <button class="btn btn-logout" onclick="window.appLogout()">Logout 🔒</button>
+
+    <div class="tab-menu">
+        <button class="tab-button active" onclick="window.openTab('addOrder', this)">New Order</button>
+        <button class="tab-button" onclick="window.openTab('productionTab', this)">Production</button>
+        <button class="tab-button" onclick="window.openTab('packingTab', this)">Packing</button>
+        <button class="tab-button" onclick="window.openTab('todaySummary', this)">Today's Summary</button>
+        <button class="tab-button" onclick="window.openTab('duePayments', this)">Due Payments</button>
+        <button class="tab-button" onclick="window.openTab('allOrders', this)">All Orders</button>
+        <button class="tab-button" onclick="window.openTab('ledgerTab', this)">Customer Ledger</button>
+        <button class="tab-button" onclick="window.openTab('expensesTab', this)">Expenses</button>
+    </div>
+
+    <div id="addOrder" class="tab-content active-print" style="display: block;">
+        <h2>Create New Order</h2>
+        <form id="orderForm">
+            <input type="hidden" id="orderId">
+            <div class="form-row">
+                <div class="form-group"><label>Order No.</label><input type="text" id="orderNo" required></div>
+                <div class="form-group"><label>Date</label><input type="date" id="orderDate" required></div>
+                <div class="form-group"><label>Delivery Date</label><input type="date" id="deliveryDate" required></div>
+                <div class="form-group"><label>Delivery Time</label><input type="time" id="deliveryTime"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex: 2;"><label>Customer Name</label><input type="text" id="customerName" required></div>
+                <div class="form-group"><label>Mobile</label><input type="tel" id="mobile"></div>
+                <div class="form-group">
+                    <label>Order Type</label>
+                    <select id="orderType">
+                        <option value="REGULAR">Regular</option>
+                        <option value="BHAJI">Bhaji</option>
+                        <option value="SNACKS">Snacks</option>
+                        <option value="DIWALI">Diwali</option>
+                        <option value="CUSTOM">Custom</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3>📦 Box Configurations</h3>
+            <div id="boxContainer"></div>
+            <button type="button" class="btn btn-primary" onclick="window.addBoxGroup()">+ Add New Box Group</button>
+            <hr>
+
+            <div class="form-row" style="margin-top: 20px; align-items: flex-end;">
+                <div class="form-group">
+                    <label>Sub Total</label>
+                    <input type="number" id="subTotal" readonly>
+                </div>
+                <div class="form-group">
+                    <label style="color:#c0392b;">Discount</label>
+                    <input type="number" id="discount" value="0" oninput="window.calculateGrandTotal()">
+                </div>
+                <div class="form-group">
+                    <label style="color:#27ae60; font-weight:bold;">Net Bill Amount</label>
+                    <input type="number" id="totalAmount" readonly>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 10px; align-items: flex-end;">
+                <div class="form-group"><label>Advance Paid</label><input type="number" id="advancePaid" value="0" step="0.01" oninput="window.calculateGrandTotal()"></div>
+                <div class="form-group">
+                    <label style="color:#d35400;">Payment Date</label>
+                    <input type="date" id="advanceDate" style="border:1px solid #d35400;">
+                </div>
+                <div class="form-group">
+                    <label>Payment Mode</label>
+                    <select id="paymentMode" class="payment-select"></select>
+                </div>
+                <div class="form-group"><label>Balance Due</label><input type="number" id="balanceShow" readonly></div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group"><label>Order Note</label><input type="text" id="orderRemark" placeholder="Special Instructions..."></div>
+            </div>
+
+            <button type="submit" class="btn btn-success">Save Order (Cloud)</button>
+        </form>
+    </div>
+
+    <div id="productionTab" class="tab-content">
+        <h2>Kitchen / Production List</h2>
+        <div class="print-header-date" id="printDateProd"></div>
+        <div class="form-row filter-controls-screen">
+            <div class="form-group"><label>Delivery Date</label><input type="date" id="prodDateFilter" onchange="window.renderProduction()"></div>
+            <div class="form-group"><label>Search Item</label><input type="text" id="prodSearchFilter" placeholder="Search..." oninput="window.renderProduction()"></div>
+            <div class="form-group"><label style="color:#d35400; font-weight:bold;">Report Prepared By*</label><input type="text" id="prodSignInput" placeholder="Name..." oninput="window.updateSign('prodSignInput','prodSignDisplay')"></div>
+            <div class="form-group" style="align-self: flex-end;"><button class="btn btn-primary" onclick="window.checkSignAndPrint('prodSignInput')">Print List</button></div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table" id="productionTable">
+                <thead><tr><th style="width:40%">Item Name</th><th style="width:20%">Total Quantity</th><th style="width:40%">Remarks</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="print-footer">
+            <span>Prepared By: <b id="prodSignDisplay"></b></span>
+            <span>Manager Check</span>
+        </div>
+    </div>
+
+    <div id="packingTab" class="tab-content">
+        <h2>Packing & Dispatch</h2>
+        <div class="print-header-date" id="printDatePack"></div>
+        <div class="form-row filter-controls-screen">
+            <div class="form-group"><label>Delivery Date</label><input type="date" id="packDateFilter" onchange="window.renderPacking()"></div>
+            <div class="form-group"><label>Search</label><input type="text" id="packSearchFilter" placeholder="Search..." oninput="window.renderPacking()"></div>
+            <div class="form-group"><label style="color:#d35400; font-weight:bold;">Checked By*</label><input type="text" id="packSignInput" placeholder="Name..." oninput="window.updateSign('packSignInput','packSignDisplay')"></div>
+            <div class="form-group" style="align-self: flex-end;"><button class="btn btn-primary" onclick="window.checkSignAndPrint('packSignInput')">Print List</button></div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table" id="packingTable">
+                <thead><tr><th style="width:12%">Time</th><th style="width:25%">Customer</th><th style="width:45%">Details</th><th style="width:18%">Notes</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="print-footer">
+            <span>Packed By: <b id="packSignDisplay"></b></span>
+            <span>Dispatched By</span>
+        </div>
+    </div>
+
+    <div id="todaySummary" class="tab-content">
+        <h2>Daily Summary Report</h2>
+        <div class="print-header-date" id="printDateSum"></div>
+        <div class="form-row filter-controls-screen">
+            <div class="form-group"><label>Select Report Date</label><input type="date" id="summaryDateFilter" onchange="window.renderSummary()"></div>
+            <div class="form-group"><label style="color:#d35400; font-weight:bold;">Report By*</label><input type="text" id="sumSignInput" placeholder="Name..." oninput="window.updateSign('sumSignInput','sumSignDisplay')"></div>
+            <div class="form-group" style="align-self: flex-end;"><button class="btn btn-primary" onclick="window.checkSignAndPrint('sumSignInput')">Print Summary</button></div>
+        </div>
+
+        <div id="summaryDashboard"></div>
+        
+        <table class="data-table" id="summaryTable">
+            <thead>
+                <tr>
+                    <th style="width:8%">Order</th>
+                    <th style="width:10%">Del. Date</th>
+                    <th style="width:15%">Customer</th>
+                    <th style="width:25%">Box Details</th>
+                    <th style="width:12%">Bill Amount</th>
+                    <th style="width:20%">Paid Details</th>
+                    <th style="width:10%">Due</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3 style="margin-top:30px; border-left:5px solid #c62828; padding-left:10px; color:#c0392b;">Today's Expenses</h3>
+        <table class="data-table" id="summaryExpenseTable">
+            <thead>
+                <tr>
+                    <th style="width:50%">Expense Detail</th>
+                    <th style="width:25%">Mode</th>
+                    <th style="width:25%">Amount</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        
+        <div class="print-footer">
+            <span>Generated By: <b id="sumSignDisplay"></b></span>
+            <span>Owner Sign</span>
+        </div>
+    </div>
+
+    <div id="duePayments" class="tab-content">
+        <h2>Due Payments</h2>
+        <div class="form-row filter-controls-screen" style="background:#fff3e0; padding:10px; border-radius:8px;">
+             <div class="form-group">
+                <label>Filter by Order Date (Optional)</label>
+                <input type="date" id="dueDetailDate" onchange="window.renderDuePayments()">
+             </div>
+             <div class="form-group">
+                <label>Search</label>
+                <input type="text" id="dueSearchInput" placeholder="Name or Order No..." oninput="window.renderDuePayments()">
+             </div>
+             <div class="form-group" style="align-self: flex-end;">
+                 <button class="btn btn-primary" onclick="window.renderDuePayments()">Refresh</button>
+                 <button class="btn btn-warning" onclick="window.print()">Print List</button>
+             </div>
+        </div>
+        <table class="data-table" id="dueTable" style="margin-top:10px;">
+            <thead><tr><th>Date</th><th>Order</th><th>Customer</th><th>Total</th><th>Paid</th><th>Due</th><th class="filter-controls-screen">Action</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="allOrders" class="tab-content">
+        <h2>All Orders</h2>
+        <div class="form-row filter-controls-screen" style="background:#e3f2fd; padding:10px; border-radius:8px;">
+            <div class="form-group"><label>From Date</label><input type="date" id="searchFromDate" onchange="window.renderAllOrders()"></div>
+            <div class="form-group"><label>To Date</label><input type="date" id="searchToDate" onchange="window.renderAllOrders()"></div>
+            <div class="form-group"><label>Search Order</label><input type="text" id="searchOrder" placeholder="Search..." oninput="window.renderAllOrders()"></div>
+        </div>
+        <table class="data-table" id="allOrdersTable">
+            <thead><tr><th>Date</th><th>Order</th><th>Customer</th><th>Box Summary</th><th>Amount</th><th class="filter-controls-screen">Action</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="ledgerTab" class="tab-content">
+        <div class="ledger-print-head">
+            <h1 class="lp-company-name">RAM KISHAN'S SWEETS</h1>
+            <p class="lp-subtitle">Statement of Account</p>
+            <div class="ledger-info-grid">
+                <div class="ledger-box">
+                    <strong>Bill To:</strong>
+                    <span id="printLedgerCustName" style="font-size:16px; text-transform:uppercase;"></span><br>
+                    <span id="printLedgerMobile"></span>
+                </div>
+                <div class="ledger-box" style="text-align:right;">
+                    <strong>Details:</strong>
+                    Date: <span id="printLedgerDate"></span>
+                </div>
+            </div>
+        </div>
+
+        <h2>Customer Ledger</h2>
+        <div class="form-row filter-controls-screen">
+            <div class="form-group">
+                <label>Select Customer</label>
+                <select id="ledgerCustomerSelect" onchange="window.renderLedger()">
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn btn-primary" onclick="window.print()">Print Formal Statement</button>
+            </div>
+        </div>
+        <div id="ledgerContent" style="display:none;">
+            <div class="table-responsive">
+                <table class="data-table" id="ledgerTable">
+                    <thead>
+                        <tr>
+                            <th style="width:15%">Date</th>
+                            <th style="width:40%">Description</th>
+                            <th style="width:15%; text-align:right;">Debit</th>
+                            <th style="width:15%; text-align:right;">Credit</th>
+                            <th style="width:15%; text-align:right;">Balance</th>
+                            <th class="filter-controls-screen" style="width:10%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="ledger-summary-grid">
+                <div class="ls-item debit"><h4>Total Bill</h4><div class="value" id="ledgerTotalDebit"></div></div>
+                <div class="ls-item credit"><h4>Total Paid</h4><div class="value" id="ledgerTotalCredit"></div></div>
+                <div class="ls-item balance"><h4>Net Balance Due</h4><div class="value" id="ledgerBalance"></div></div>
+            </div>
+            <div class="print-footer">
+                <span>Customer Sign</span>
+                <span>Authorized Signatory</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="expensesTab" class="tab-content">
+        <h2>Expense Management</h2>
+        <div class="form-row filter-controls-screen" style="background:#fff0f0; padding:15px; border-radius:8px; border:1px solid #ffcccc;">
+            <div class="form-group"><label>Date</label><input type="date" id="expDate"></div>
+            <div class="form-group"><label>Amount</label><input type="number" id="expAmt"></div>
+            <div class="form-group">
+                <label>Payment Mode</label>
+                <select id="expMode" class="payment-select"></select>
+            </div>
+            <div class="form-group"><label>Details</label><input type="text" id="expDetail" placeholder="Rent, Salary, etc"></div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn btn-danger" onclick="window.addExpense()">Add Expense (Cloud)</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table" id="expenseTable">
+                <thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Mode</th><th class="filter-controls-screen">Action</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="payModal" class="modal">
+    <div class="modal-content">
+        <h3>Add Payment</h3>
+        <input type="hidden" id="modalOrderId">
+        <label>Date</label><input type="date" id="modalPayDate" style="margin-bottom:10px;">
+        <label>Amount</label><input type="number" id="modalPayAmt" placeholder="Amount" style="margin-bottom:10px;">
+        <label>Discount (Optional)</label><input type="number" id="modalDiscount" placeholder="Discount" style="margin-bottom:10px;">
+        <label>Mode</label><select id="modalPayMode" class="payment-select" style="margin-bottom:10px;"></select>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn btn-success" style="flex:1" onclick="window.savePayment()">Save</button>
+            <button class="btn btn-danger" style="flex:1" onclick="document.getElementById('payModal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="editPayModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit Payment</h3>
+        <input type="hidden" id="editPayId">
+        <label>Date</label><input type="date" id="editPayDate" style="margin-bottom:10px;">
+        <label>Amount</label><input type="number" id="editPayAmt" style="margin-bottom:10px;">
+        <label>Mode</label><select id="editPayMode" class="payment-select" style="margin-bottom:10px;"></select>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn btn-primary" style="flex:1" onclick="window.saveEditedPayment()">Update</button>
+            <button class="btn btn-danger" style="flex:1" onclick="document.getElementById('editPayModal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+  // --- FIREBASE SETUP ---
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCn_9Z8oEnK03gtfC_EC-z4cONx5lMddes",
+    authDomain: "ramkishan-a2c11.firebaseapp.com",
+    projectId: "ramkishan-a2c11",
+    storageBucket: "ramkishan-a2c11.firebasestorage.app",
+    messagingSenderId: "512484078712",
+    appId: "1:512484078712:web:d8f3470bd22dd37f63e98d"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // --- GLOBAL DATA STORAGE ---
+  // We keep data in these global arrays so existing logic works, but they are synced from Cloud
+  let globalOrders = [];
+  let globalLedger = [];
+
+  // --- AUTH FUNCTIONS ---
+  window.appLogin = async () => {
+      const email = document.getElementById('loginEmail').value;
+      const pass = document.getElementById('loginPass').value;
+      const msg = document.getElementById('loginMsg');
+      try {
+          msg.textContent = "Logging in...";
+          await signInWithEmailAndPassword(auth, email, pass);
+          msg.textContent = "";
+      } catch (error) {
+          msg.textContent = "Error: " + error.message;
+      }
+  };
+
+  window.appLogout = () => {
+      signOut(auth).then(() => {
+          location.reload();
+      });
+  };
+
+  // Monitor Auth State
+  onAuthStateChanged(auth, (user) => {
+      if (user) {
+          document.getElementById('loginOverlay').style.display = 'none';
+          document.getElementById('mainApp').style.display = 'block';
+          startDataSync(); // Start downloading data from cloud
+      } else {
+          document.getElementById('loginOverlay').style.display = 'flex';
+          document.getElementById('mainApp').style.display = 'none';
+      }
+  });
+
+  // --- REAL-TIME DATABASE SYNC ---
+  function startDataSync() {
+      // Listen to Orders
+      onSnapshot(collection(db, "orders"), (snapshot) => {
+          globalOrders = snapshot.docs.map(doc => doc.data());
+          refreshCurrentTab();
+      });
+      // Listen to Ledger
+      onSnapshot(collection(db, "ledger"), (snapshot) => {
+          globalLedger = snapshot.docs.map(doc => doc.data());
+          refreshCurrentTab();
+      });
+  }
+
+  function refreshCurrentTab() {
+      // Which tab is active?
+      if(document.getElementById('productionTab').style.display === 'block') window.renderProduction();
+      if(document.getElementById('packingTab').style.display === 'block') window.renderPacking();
+      if(document.getElementById('todaySummary').style.display === 'block') window.renderSummary();
+      if(document.getElementById('duePayments').style.display === 'block') window.renderDuePayments();
+      if(document.getElementById('allOrders').style.display === 'block') window.renderAllOrders();
+      if(document.getElementById('ledgerTab').style.display === 'block') window.renderLedger();
+      if(document.getElementById('expensesTab').style.display === 'block') window.renderExpenses();
+  }
+
+  // --- HELPER FUNCTIONS ---
+  const today = new Date().toISOString().split('T')[0];
+  const genId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+  window.formatAMPM = (time) => {
+      if (!time) return '--';
+      let [hours, minutes] = time.split(':');
+      hours = parseInt(hours);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; 
+      return `${hours}:${minutes} ${ampm}`;
+  }
+
+  window.formatMoney = (amount) => '₹' + parseFloat(amount).toFixed(2);
+  
+  window.formatDate = (dateStr) => {
+      if(!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${d}-${m}-${y}`;
+  }
+
+  window.getModeBadgeStyle = (mode) => {
+      mode = (mode || '').toUpperCase();
+      if(mode.includes('DISCOUNT')) return 'background:#fff8e1; color:#f57f17; border:1px solid #ffecb3; border-left-color:#f57f17;';
+      if(mode.includes('CASH') || mode.includes('COUNTER')) return 'background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-left-color:#2e7d32;'; 
+      if(mode.includes('UPI') || mode.includes('PAYTM') || mode.includes('GPAY') || mode.includes('ONLINE')) return 'background:#e3f2fd; color:#1565c0; border:1px solid #bbdefb; border-left-color:#1565c0;'; 
+      return 'background:#f5f5f5; color:#424242; border:1px solid #bdbdbd; border-left-color:#424242;'; 
+  }
+
+  window.getCardStyle = (mode) => {
+        mode = (mode || '').toUpperCase();
+        if(mode.includes('CASH') || mode.includes('COUNTER')) return 'border-left-color: #4caf50; background-color: #e8f5e9; color: #2e7d32;';
+        if(mode.includes('UPI') || mode.includes('PAYTM') || mode.includes('ONLINE')) return 'border-left-color: #2196f3; background-color: #e3f2fd; color: #1565c0;';
+        if(mode.includes('CARD')) return 'border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;';
+        return 'border-left-color: #607d8b; background-color: #eceff1; color: #455a64;';
+  }
+
+  window.updateSign = (srcId, destId) => {
+      document.getElementById(destId).innerText = document.getElementById(srcId).value;
+  }
+
+  window.checkSignAndPrint = (id) => {
+      const val = document.getElementById(id).value.trim();
+      if(!val) {
+          alert("⚠️ STOP: Please enter the Name/Signature first before printing!");
+          document.getElementById(id).focus();
+          document.getElementById(id).style.border = "2px solid red";
+          return;
+      }
+      document.getElementById(id).style.border = "1px solid #ccc";
+      window.print();
+  }
+
+  // --- INITIALIZATION ---
+  window.onload = function() {
+      const selectClasses = document.querySelectorAll('.payment-select');
+      const PAYMENT_MODES = ["Cash", "UPI", "Credits", "Counter Pay", "Bank Transfer", "Card", "Cheque", "Other"];
+      selectClasses.forEach(sel => {
+          sel.innerHTML = '';
+          PAYMENT_MODES.forEach(mode => sel.innerHTML += `<option value="${mode}">${mode}</option>`);
+      });
+      document.querySelectorAll('input[type="date"]').forEach(i => {
+          if(!i.id.includes('search') && !i.id.includes('dueDetail')) i.value = today;
+      });
+      window.addBoxGroup(); 
+  };
+
+  window.openTab = (id, btn) => {
+      document.querySelectorAll('.tab-content').forEach(t => { t.style.display='none'; t.classList.remove('active-print'); });
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).style.display = 'block';
+      document.getElementById(id).classList.add('active-print');
+      btn.classList.add('active');
+      
+      if(id === 'productionTab') window.renderProduction();
+      if(id === 'packingTab') window.renderPacking();
+      if(id === 'todaySummary') window.renderSummary();
+      if(id === 'duePayments') window.renderDuePayments();
+      if(id === 'allOrders') window.renderAllOrders();
+      if(id === 'ledgerTab') window.populateLedgerSelect();
+      if(id === 'expensesTab') window.renderExpenses();
+  }
+
+  // --- ORDER LOGIC ---
+  window.addBoxGroup = (data = {}) => {
+      const container = document.getElementById('boxContainer');
+      const div = document.createElement('div');
+      div.className = 'box-group-container';
+      div.innerHTML = `
+          <div class="box-group-header">
+              <div class="box-group-title">Box Configuration</div>
+              <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.box-group-container').remove(); window.calculateGrandTotal()">Remove</button>
+          </div>
+          <div class="form-row" style="background: #e1f5fe; padding: 10px; border-radius: 6px;">
+              <div class="form-group" style="flex:2"><label>Box Name</label><input type="text" class="group-name" value="${data.groupName || ''}" placeholder="e.g. Mix Box"></div>
+              <div class="form-group"><label style="color:#d35400; font-weight:bold;">TOTAL BOXES</label><input type="number" class="group-qty" value="${data.groupQty || 1}" min="1" oninput="window.calculateGrandTotal()" style="border: 2px solid #d35400; font-weight:bold;"></div>
+          </div>
+          <div class="item-list-container">
+              <div class="items-wrapper"></div>
+              <button type="button" class="btn btn-sm btn-warning" style="margin-top:5px;" onclick="window.addItemToGroup(this)">+ Add Item</button>
+          </div>
+      `;
+      container.appendChild(div);
+      if(data.items && data.items.length > 0) {
+          const wrapper = div.querySelector('.items-wrapper');
+          data.items.forEach(item => window.addItemToGroup(null, wrapper, item));
+      } else {
+          window.addItemToGroup(div.querySelector('.btn-warning'));
+      }
+  }
+
+  window.addItemToGroup = (btn, targetWrapper = null, data = {}) => {
+      const wrapper = targetWrapper || btn.previousElementSibling;
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+          <div style="flex:3;"><label>Item Name</label><input type="text" class="item-name" value="${data.name || ''}" placeholder="Name"></div>
+          <div style="flex:1;"><label>Qty</label><input type="number" class="item-qty" value="${data.qty || 1}" step="0.001" oninput="window.calculateGrandTotal()"></div>
+          <div style="flex:1;"><label>Rate</label><input type="number" class="item-rate" value="${data.rate || 0}" oninput="window.calculateGrandTotal()"></div>
+          <div style="flex:2;"><label>Remark</label><input type="text" class="item-remark" value="${data.remark || ''}" placeholder="Remark"></div>
+          <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove(); window.calculateGrandTotal()">X</button>
+      `;
+      wrapper.appendChild(row);
+  }
+
+  window.calculateGrandTotal = () => {
+      let subTotal = 0;
+      document.querySelectorAll('.box-group-container').forEach(group => {
+          const groupQty = parseFloat(group.querySelector('.group-qty').value) || 0;
+          let groupCostPerBox = 0;
+          group.querySelectorAll('.item-row').forEach(row => {
+              const iQty = parseFloat(row.querySelector('.item-qty').value) || 0;
+              const iRate = parseFloat(row.querySelector('.item-rate').value) || 0;
+              groupCostPerBox += (iQty * iRate);
+          });
+          subTotal += (groupCostPerBox * groupQty);
+      });
+      const discount = parseFloat(document.getElementById('discount').value) || 0;
+      const netTotal = subTotal - discount;
+      document.getElementById('subTotal').value = subTotal.toFixed(2);
+      document.getElementById('totalAmount').value = netTotal.toFixed(2);
+      const adv = parseFloat(document.getElementById('advancePaid').value) || 0;
+      document.getElementById('balanceShow').value = (netTotal - adv).toFixed(2);
+  }
+
+  document.getElementById('orderForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const boxGroups = [];
+      document.querySelectorAll('.box-group-container').forEach(group => {
+          const items = [];
+          group.querySelectorAll('.item-row').forEach(row => {
+              items.push({
+                  name: row.querySelector('.item-name').value,
+                  qty: row.querySelector('.item-qty').value,
+                  rate: row.querySelector('.item-rate').value,
+                  remark: row.querySelector('.item-remark').value
+              });
+          });
+          boxGroups.push({
+              groupName: group.querySelector('.group-name').value || 'Un-named Box',
+              groupQty: group.querySelector('.group-qty').value,
+              items: items
+          });
+      });
+
+      if(boxGroups.length === 0) return alert("Add at least one box.");
+
+      // Check if Edit or New
+      let id = document.getElementById('orderId').value;
+      const isNew = !id;
+      if(isNew) id = genId();
+      
+      const subTotal = parseFloat(document.getElementById('subTotal').value) || 0;
+      const discount = parseFloat(document.getElementById('discount').value) || 0;
+      const total = parseFloat(document.getElementById('totalAmount').value);
+      
+      const newOrder = {
+          id: id,
+          no: document.getElementById('orderNo').value,
+          date: document.getElementById('orderDate').value,
+          delDate: document.getElementById('deliveryDate').value,
+          delTime: document.getElementById('deliveryTime').value,
+          cust: document.getElementById('customerName').value,
+          mobile: document.getElementById('mobile').value,
+          type: document.getElementById('orderType').value,
+          note: document.getElementById('orderRemark').value,
+          boxGroups: boxGroups,
+          subTotal: subTotal,
+          discount: discount,
+          total: total
+      };
+
+      try {
+          // SAVE ORDER TO FIRESTORE
+          await setDoc(doc(db, "orders", id), newOrder);
+
+          // HANDLE LEDGER (Bill Entry)
+          // Find existing Debit entry if edit
+          let debitEntryId = genId();
+          if(!isNew) {
+              const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
+              if(existingDebit) debitEntryId = existingDebit.id;
+          }
+
+          const debitEntry = {
+              id: debitEntryId, 
+              type:'DEBIT', 
+              orderId: id, 
+              cust: newOrder.cust, 
+              date: newOrder.date, 
+              amount: total, 
+              desc: 'Order #'+newOrder.no + (discount>0 ? ' (Disc: '+discount+')' : '')
+          };
+          await setDoc(doc(db, "ledger", debitEntryId), debitEntry);
+
+          // HANDLE ADVANCE
+          const adv = parseFloat(document.getElementById('advancePaid').value);
+          if(isNew && adv > 0) {
+               const payDate = document.getElementById('advanceDate').value || newOrder.date;
+               const payId = genId();
+               await setDoc(doc(db, "ledger", payId), {
+                   id: payId, type:'CREDIT', orderId: id, cust: newOrder.cust, date: payDate, amount: adv, mode: document.getElementById('paymentMode').value, desc: 'Advance Payment'
+               });
+          }
+
+          alert('Order Saved to Cloud!');
+          this.reset();
+          document.getElementById('boxContainer').innerHTML = '';
+          window.addBoxGroup();
+          document.getElementById('orderId').value = '';
+          document.getElementById('orderDate').value = today;
+          document.getElementById('deliveryDate').value = today;
+      } catch(err) {
+          alert("Error saving: " + err.message);
+      }
+  });
+
+  // --- RENDER FUNCTIONS ---
+  window.renderProduction = () => {
+      const date = document.getElementById('prodDateFilter').value;
+      const search = document.getElementById('prodSearchFilter').value.toLowerCase();
+      document.getElementById('printDateProd').textContent = "Production Date: " + window.formatDate(date);
+      const orders = globalOrders.filter(o => o.delDate === date);
+      const tbody = document.querySelector('#productionTable tbody');
+      tbody.innerHTML = '';
+      if(orders.length === 0) { tbody.innerHTML='<tr><td colspan="3">No orders</td></tr>'; return; }
+
+      const prodSummary = {}; 
+      orders.forEach(o => {
+          o.boxGroups.forEach(bg => {
+              const boxCount = parseFloat(bg.groupQty) || 0;
+              bg.items.forEach(i => {
+                  const itemName = i.name.trim();
+                  if(!itemName || (search && !itemName.toLowerCase().includes(search))) return;
+                  const totalQty = boxCount * (parseFloat(i.qty) || 0);
+                  if (!prodSummary[itemName]) prodSummary[itemName] = { qty: 0, remarks: new Set() };
+                  prodSummary[itemName].qty += totalQty;
+                  if (i.remark) prodSummary[itemName].remarks.add(i.remark);
+              });
+          });
+      });
+
+      for (const [name, data] of Object.entries(prodSummary)) {
+          tbody.innerHTML += `<tr><td style="font-weight:bold;">${name}</td><td style="font-size:16px; color:#d35400; font-weight:bold;">${data.qty.toFixed(3)}</td><td>${Array.from(data.remarks).join(', ')}</td></tr>`;
+      }
+  }
+
+  window.renderPacking = () => {
+      const date = document.getElementById('packDateFilter').value;
+      const search = document.getElementById('packSearchFilter').value.toLowerCase();
+      document.getElementById('printDatePack').textContent = "Packing Date: " + window.formatDate(date);
+      let orders = globalOrders.filter(o => o.delDate === date);
+      orders.sort((a,b) => (a.delTime||'').localeCompare(b.delTime||''));
+      const tbody = document.querySelector('#packingTable tbody');
+      tbody.innerHTML = '';
+      orders.forEach(o => {
+          if(search && !o.cust.toLowerCase().includes(search)) return;
+          let detailsHtml = '';
+          o.boxGroups.forEach(bg => {
+              let itemsList = bg.items.map(i => `${i.name} (${i.qty}) ${i.remark ? '<span style="color:red">['+i.remark+']</span>':''}`).join(', ');
+              detailsHtml += `<div style="border-bottom:1px dashed #ccc; padding:3px 0;"><span style="font-weight:bold; color:#d35400;">${bg.groupQty} x ${bg.groupName}</span><br><span style="font-size:11px;">${itemsList}</span></div>`;
+          });
+          tbody.innerHTML += `<tr><td>${window.formatAMPM(o.delTime)}</td><td><b>${o.cust}</b><br>${o.mobile}</td><td>${detailsHtml}</td><td>${o.note || ''}</td></tr>`;
+      });
+  }
+
+  window.renderSummary = () => {
+      const date = document.getElementById('summaryDateFilter').value;
+      document.getElementById('printDateSum').textContent = "Summary Date: " + window.formatDate(date);
+      
+      let totalInc = 0, totalExp = 0, modeCounts = {}; 
+
+      // Calc Totals
+      globalLedger.forEach(l => {
+          if(l.date === date) {
+              const amt = parseFloat(l.amount) || 0;
+              if(l.type === 'CREDIT') {
+                  totalInc += amt;
+                  const m = (l.mode || 'Unknown').trim();
+                  modeCounts[m] = (modeCounts[m] || 0) + amt;
+              } else if(l.type === 'EXPENSE') {
+                  totalExp += amt;
+              }
+          }
+      });
+
+      // Render Boxes
+      const dash = document.getElementById('summaryDashboard');
+      let boxesHtml = `
+          <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalInc)}</div></div>
+          <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Less: Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
+          <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>CASH IN HAND</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(totalInc - totalExp)}</div></div>
+      `;
+      for (const [mode, val] of Object.entries(modeCounts)) {
+          if(val > 0) {
+              let displayVal = val;
+              let label = mode + " Total";
+              if(mode.toUpperCase().includes('CASH')) { displayVal = val - totalExp; label = mode + " (Net)"; }
+              boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${label}</h4><div class="value">${window.formatMoney(displayVal)}</div></div>`;
+          }
+      }
+      dash.innerHTML = boxesHtml;
+
+      // Render Order Table
+      const tbody = document.querySelector('#summaryTable tbody');
+      tbody.innerHTML = '';
+      const uniqueOrds = [...new Set(globalLedger.filter(l => l.date === date && l.orderId).map(t=>t.orderId))];
+      
+      uniqueOrds.forEach(oid => {
+          const ord = globalOrders.find(o=>o.id===oid);
+          if(ord) {
+              const txns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
+              const todayTxns = txns.filter(t => t.date === date);
+              let badgesHtml = '';
+
+              if(todayTxns.length > 0) {
+                  todayTxns.forEach(t => {
+                      badgesHtml += `
+                      <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
+                          <div style="display:flex; justify-content:space-between; align-items:center;">
+                              <span><b>${window.formatMoney(t.amount)}</b> <span style="font-size:11px">(${t.mode})</span></span>
+                              <div class="badge-actions">
+                                  <button class="btn-icon icon-edit" onclick="window.openEditPayment('${t.id}')">✎</button>
+                                  <button class="btn-icon icon-del" onclick="window.deleteTransaction('${t.id}')">✖</button>
+                              </div>
+                          </div>
+                      </div>`;
+                  });
+              }
+              const paidTotalEver = txns.reduce((s,l)=>s+parseFloat(l.amount),0);
+              const due = ord.total - paidTotalEver;
+              
+              let boxDetailsStr = "";
+              if(ord.boxGroups){
+                   boxDetailsStr = ord.boxGroups.map(bg => `${bg.groupQty} x ${bg.groupName}`).join(', ');
+              }
+
+              tbody.innerHTML += `<tr><td>${ord.no}</td><td>${window.formatDate(ord.delDate)}</td><td>${ord.cust}</td><td>${boxDetailsStr}</td><td>${window.formatMoney(ord.total)}</td><td>${badgesHtml}</td><td style="color:${due>0?'red':'green'}">${window.formatMoney(due)}</td></tr>`;
+          }
+      });
+
+      // Render Expense Table
+      const expTbody = document.querySelector('#summaryExpenseTable tbody');
+      expTbody.innerHTML = '';
+      globalLedger.filter(l => l.type === 'EXPENSE' && l.date === date).forEach(ex => {
+           expTbody.innerHTML += `<tr><td>${ex.desc}</td><td>${ex.mode}</td><td style="font-weight:bold; color:#c0392b;">${window.formatMoney(ex.amount)}</td></tr>`;
+      });
+      expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
+  }
+
+  // --- ACTIONS (DELETE/EDIT) ---
+  window.deleteTransaction = async (id) => {
+      if(!confirm("Delete this payment? Cloud will update immediately.")) return;
+      await deleteDoc(doc(db, "ledger", id));
+  }
+
+  window.deleteOrder = async (id) => {
+      if(confirm("DELETE ORDER? This removes the order and ALL its ledger entries from Cloud.")) {
+          // Delete Order
+          await deleteDoc(doc(db, "orders", id));
+          // Delete all associated ledger entries
+          const relatedLedger = globalLedger.filter(l => l.orderId === id);
+          relatedLedger.forEach(async (l) => {
+              await deleteDoc(doc(db, "ledger", l.id));
+          });
+          alert("Deleted from Cloud.");
+      }
+  }
+
+  // --- DUE PAYMENTS ---
+  window.renderDuePayments = () => {
+      const q = document.getElementById('dueSearchInput').value.toLowerCase();
+      const filterDate = document.getElementById('dueDetailDate').value;
+      const tbody = document.querySelector('#dueTable tbody');
+      tbody.innerHTML = '';
+      let totalDue = 0;
+
+      globalOrders.forEach(o => {
+          if(filterDate && o.date !== filterDate) return;
+          const paid = globalLedger.filter(l=>(l.type==='CREDIT' || l.type==='DISCOUNT') && l.orderId===o.id).reduce((s,l)=>s+parseFloat(l.amount),0);
+          const due = o.total - paid;
+          if(due > 1) {
+              if(q && !o.cust.toLowerCase().includes(q) && !o.no.toLowerCase().includes(q)) return;
+              totalDue += due;
+              tbody.innerHTML += `<tr><td>${window.formatDate(o.date)}</td><td>${o.no}</td><td>${o.cust}<br><small>${o.mobile}</small></td><td>${window.formatMoney(o.total)}</td><td>${window.formatMoney(paid)}</td><td style="color:red;font-weight:bold">${window.formatMoney(due)}</td><td class="filter-controls-screen"><button class="btn btn-sm btn-success" onclick="window.openPay('${o.id}')">Pay</button></td></tr>`;
+          }
+      });
+      if(totalDue > 0) tbody.innerHTML += `<tr style="background:#fff3e0; font-weight:bold;"><td colspan="5" style="text-align:right">Total Pending:</td><td style="color:red;">${window.formatMoney(totalDue)}</td><td></td></tr>`;
+  }
+
+  // --- ALL ORDERS ---
+  window.renderAllOrders = () => {
+      const q = document.getElementById('searchOrder').value.toLowerCase();
+      const fromDate = document.getElementById('searchFromDate').value;
+      const toDate = document.getElementById('searchToDate').value;
+      const tbody = document.querySelector('#allOrdersTable tbody');
+      tbody.innerHTML = '';
+      
+      const sorted = [...globalOrders].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+      sorted.forEach(o => {
+          if (fromDate && o.date < fromDate) return;
+          if (toDate && o.date > toDate) return;
+          if(o.no.toLowerCase().includes(q) || o.cust.toLowerCase().includes(q)) {
+              let boxSum = o.boxGroups.map(bg => `${bg.groupQty}x ${bg.groupName}`).join(', ');
+              tbody.innerHTML += `<tr><td>${window.formatDate(o.date)}</td><td>${o.no}</td><td>${o.cust}</td><td><small>${boxSum}</small></td><td>${window.formatMoney(o.total)}</td><td class="filter-controls-screen"><button class="btn btn-sm btn-primary" onclick="window.editOrder('${o.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteOrder('${o.id}')">Del</button></td></tr>`;
+          }
+      });
+  }
+
+  // --- LEDGER ---
+  window.populateLedgerSelect = () => {
+      const customers = [...new Set(globalOrders.map(o => o.cust))].sort();
+      const sel = document.getElementById('ledgerCustomerSelect');
+      sel.innerHTML = '<option value="">-- Select --</option>';
+      customers.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+  }
+
+  window.renderLedger = () => {
+      const cust = document.getElementById('ledgerCustomerSelect').value;
+      if (!cust) return;
+      const ledger = globalLedger.filter(l => l.cust === cust).sort((a,b) => new Date(a.date) - new Date(b.date));
+      const linkedOrder = globalOrders.find(o => o.cust === cust);
+      
+      document.getElementById('printLedgerCustName').innerText = cust;
+      document.getElementById('printLedgerMobile').innerText = linkedOrder ? "Mobile: " + linkedOrder.mobile : "";
+      document.getElementById('printLedgerDate').innerText = window.formatDate(today);
+      document.getElementById('ledgerContent').style.display = 'block';
+      
+      const tbody = document.querySelector('#ledgerTable tbody');
+      tbody.innerHTML = '';
+      let runningBalance = 0, totalDebit = 0, totalCredit = 0;
+
+      ledger.forEach(l => {
+          const amount = parseFloat(l.amount);
+          if (l.type === 'DEBIT') { runningBalance += amount; totalDebit += amount; }
+          if (l.type === 'CREDIT' || l.type === 'DISCOUNT') { runningBalance -= amount; totalCredit += amount; }
+          
+          const debit = l.type === 'DEBIT' ? window.formatMoney(amount) : '';
+          const credit = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? window.formatMoney(amount) : '';
+          const desc = l.type === 'DISCOUNT' ? `<b>Discount</b>` : (l.desc || 'Order');
+          
+          const action = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? `<button class="btn btn-sm btn-warning" onclick="window.openEditPayment('${l.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">Del</button>` : '';
+
+          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${desc} <small>(${l.mode || 'Bill'})</small></td><td style="text-align:right;">${debit}</td><td style="text-align:right;">${credit}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(runningBalance)}</td><td class="filter-controls-screen">${action}</td></tr>`;
+      });
+      
+      document.getElementById('ledgerTotalDebit').innerText = window.formatMoney(totalDebit);
+      document.getElementById('ledgerTotalCredit').innerText = window.formatMoney(totalCredit);
+      document.getElementById('ledgerBalance').innerText = window.formatMoney(runningBalance);
+  }
+
+  // --- EDIT/PAYMENT UTILS ---
+  window.editOrder = (id) => {
+      const o = globalOrders.find(x => x.id === id);
+      if(!o) return;
+      document.getElementById('orderId').value = o.id;
+      document.getElementById('orderNo').value = o.no;
+      document.getElementById('orderDate').value = o.date;
+      document.getElementById('deliveryDate').value = o.delDate;
+      document.getElementById('deliveryTime').value = o.delTime;
+      document.getElementById('customerName').value = o.cust;
+      document.getElementById('mobile').value = o.mobile;
+      document.getElementById('orderType').value = o.type;
+      document.getElementById('orderRemark').value = o.note;
+      document.getElementById('boxContainer').innerHTML = '';
+      if(o.boxGroups) o.boxGroups.forEach(bg => window.addBoxGroup(bg));
+      document.getElementById('discount').value = o.discount || 0;
+      window.calculateGrandTotal();
+      window.openTab('addOrder', document.querySelector('.tab-menu button:first-child'));
+  }
+
+  window.openPay = (id) => {
+      document.getElementById('modalOrderId').value = id;
+      document.getElementById('modalPayDate').value = today;
+      document.getElementById('modalPayAmt').value = '';
+      document.getElementById('modalDiscount').value = '';
+      document.getElementById('payModal').style.display = 'block';
+  }
+
+  window.savePayment = async () => {
+      const id = document.getElementById('modalOrderId').value;
+      const amt = parseFloat(document.getElementById('modalPayAmt').value) || 0;
+      const disc = parseFloat(document.getElementById('modalDiscount').value) || 0;
+      const mode = document.getElementById('modalPayMode').value;
+      const date = document.getElementById('modalPayDate').value; 
+      const o = globalOrders.find(x => x.id === id);
+      
+      if(amt > 0) {
+          const pid = genId();
+          await setDoc(doc(db, "ledger", pid), {id: pid, type:'CREDIT', orderId:id, cust:o.cust, date:date, amount:amt, mode:mode, desc:'Payment Received'});
+      }
+      if(disc > 0) {
+          const did = genId();
+          await setDoc(doc(db, "ledger", did), {id: did, type:'DISCOUNT', orderId:id, cust:o.cust, date:date, amount:disc, mode:'Discount', desc:'Discount Given'});
+      }
+      document.getElementById('payModal').style.display = 'none';
+      alert("Payment Saved to Cloud");
+  }
+
+  window.openEditPayment = (id) => {
+      const entry = globalLedger.find(l => l.id === id);
+      if(!entry) return;
+      document.getElementById('editPayId').value = id;
+      document.getElementById('editPayDate').value = entry.date;
+      document.getElementById('editPayAmt').value = entry.amount;
+      document.getElementById('editPayMode').value = entry.mode;
+      document.getElementById('editPayModal').style.display = 'block';
+  }
+
+  window.saveEditedPayment = async () => {
+      const id = document.getElementById('editPayId').value;
+      const date = document.getElementById('editPayDate').value;
+      const amt = parseFloat(document.getElementById('editPayAmt').value);
+      const mode = document.getElementById('editPayMode').value;
+      
+      await updateDoc(doc(db, "ledger", id), { date: date, amount: amt, mode: mode });
+      document.getElementById('editPayModal').style.display = 'none';
+      alert("Payment Updated in Cloud");
+  }
+
+  // --- EXPENSES ---
+  window.renderExpenses = () => {
+      document.getElementById('expDate').value = today;
+      const ledger = globalLedger.filter(l => l.type === 'EXPENSE');
+      const tbody = document.querySelector('#expenseTable tbody');
+      tbody.innerHTML = '';
+      ledger.reverse().forEach(l => {
+          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${l.desc}</td><td style="color:red; font-weight:bold">${l.amount}</td><td>${l.mode}</td><td class="filter-controls-screen"><button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">X</button></td></tr>`;
+      });
+  }
+
+  window.addExpense = async () => {
+      const date = document.getElementById('expDate').value;
+      const amt = document.getElementById('expAmt').value;
+      const desc = document.getElementById('expDetail').value;
+      const mode = document.getElementById('expMode').value;
+      if(!amt || !desc) return alert("Fill all fields");
+      const id = genId();
+      await setDoc(doc(db, "ledger", id), { id: id, type: 'EXPENSE', date: date, amount: amt, desc: desc, mode: mode });
+      document.getElementById('expAmt').value = '';
+      alert("Expense Added");
+  }
+
+</script>
+</body>
+</html>
