@@ -376,12 +376,13 @@
         <table class="data-table" id="monthTable">
             <thead>
                 <tr>
-                    <th style="width:15%">Date</th>
-                    <th style="width:15%">Orders Placed</th>
-                    <th style="width:20%; text-align:right;">Total Sales (Billed)</th>
-                    <th style="width:20%; text-align:right; color:#27ae60;">Collection (Cash In)</th>
-                    <th style="width:20%; text-align:right; color:#c0392b;">Expenses (Cash Out)</th>
-                    <th style="width:10%; text-align:right;">Net Cash</th>
+                    <th style="width:12%">Date</th>
+                    <th style="width:10%">Orders</th>
+                    <th style="width:18%; text-align:right;">Billed Sale</th>
+                    <th style="width:18%; text-align:right; color:#27ae60;">Total Collection</th>
+                    <th style="width:15%; text-align:right; color:#1565c0; font-weight:bold;">Cash (Counter)</th>
+                    <th style="width:15%; text-align:right; color:#c0392b;">Expenses</th>
+                    <th style="width:12%; text-align:right;">Net Cash</th>
                 </tr>
             </thead>
             <tbody id="monthTableBody"></tbody>
@@ -748,7 +749,6 @@
       document.getElementById(id).style.display = 'block';
       document.getElementById(id).classList.add('active-print');
       btn.classList.add('active');
-      
       refreshCurrentTab();
   }
 
@@ -821,12 +821,11 @@
       const existingOrder = globalOrders.find(o => o.no === orderNo);
       let isDuplicateMerge = false;
 
-      // --- DUPLICATE CHECK LOGIC ---
       if(existingOrder && !document.getElementById('orderId').value) {
           if(confirm(`⚠️ Order No "${orderNo}" already exists for customer "${existingOrder.cust}".\n\nDo you want to ADD these new items to their account? (Yes = Merge, No = Cancel)`)) {
               isDuplicateMerge = true;
           } else {
-              return; // User cancelled
+              return; 
           }
       }
 
@@ -850,7 +849,6 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
-      // Set ID: Use existing if merging, else create new
       let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
       
       const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
@@ -858,23 +856,17 @@
       const currentNewTotal = parseFloat(document.getElementById('totalAmount').value) || 0;
       
       try {
-          // --- LOGIC: NEW ORDER vs MERGE ORDER ---
           if (isDuplicateMerge) {
-              // 1. Merge Box Groups
               const updatedBoxGroups = [...existingOrder.boxGroups, ...boxGroups];
-              
-              // 2. Update Total Amount (Old Total + New Amount)
               const oldTotal = parseFloat(existingOrder.total) || 0;
               const newGrandTotal = oldTotal + currentNewTotal;
 
-              // 3. Update Order in Cloud
               await updateDoc(doc(db, "orders", id), {
                   boxGroups: updatedBoxGroups,
                   total: newGrandTotal,
-                  delDate: document.getElementById('deliveryDate').value // Update delivery date to latest
+                  delDate: document.getElementById('deliveryDate').value
               });
 
-              // 4. Create NEW Ledger Entry for the ADDED Amount (Preserves old ledger)
               const additionalDebitId = genId();
               await setDoc(doc(db, "ledger", additionalDebitId), {
                   id: additionalDebitId,
@@ -889,7 +881,6 @@
               alert(`Added new items to existing Order #${orderNo}.\nAccount debited by ₹${currentNewTotal}.`);
 
           } else {
-              // --- NORMAL NEW ORDER (OR EDITING EXISTING) ---
               const isEdit = document.getElementById('orderId').value !== "";
               
               const newOrder = {
@@ -910,9 +901,7 @@
               
               await setDoc(doc(db, "orders", id), newOrder);
 
-              // Ledger Logic for New/Edit
               if(isEdit) {
-                 // For edit, we update the PRIMARY debit entry.
                  const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
                  if(existingDebit) {
                      await updateDoc(doc(db, "ledger", existingDebit.id), {
@@ -922,7 +911,6 @@
                      });
                  }
               } else {
-                  // Fresh Order -> One fresh Debit entry
                   const debitEntryId = genId();
                   await setDoc(doc(db, "ledger", debitEntryId), {
                       id: debitEntryId, 
@@ -937,7 +925,6 @@
               alert('Order Saved to Cloud!');
           }
 
-          // Handle Advance Payment (Common for both)
           const adv = parseFloat(document.getElementById('advancePaid').value);
           if(adv > 0) {
                const payDate = document.getElementById('advanceDate').value || today;
@@ -947,7 +934,6 @@
                });
           }
 
-          // Reset Form
           this.reset();
           document.getElementById('boxContainer').innerHTML = '';
           window.addBoxGroup();
@@ -960,7 +946,7 @@
       }
   });
 
-  // --- RENDER FUNCTIONS (Kept same) ---
+  // --- RENDER FUNCTIONS ---
   window.renderProduction = () => {
       const date = document.getElementById('prodDateFilter').value;
       const search = document.getElementById('prodSearchFilter').value.toLowerCase();
@@ -1051,10 +1037,7 @@
       uniqueOrds.forEach(oid => {
           const ord = globalOrders.find(o=>o.id===oid);
           if(ord) {
-              // --- FIXED: Payment History Display ---
               const allTxns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
-              
-              // Sort newest first
               allTxns.sort((a,b) => new Date(b.date) - new Date(a.date));
 
               let historyHtml = '';
@@ -1065,7 +1048,6 @@
                   const isCurrentDate = t.date === date;
                   
                   if(isCurrentDate) {
-                      // Big Badge for today
                       historyHtml += `
                       <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
                           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1077,7 +1059,6 @@
                           </div>
                       </div>`;
                   } else {
-                      // Small history item for past dates
                       historyHtml += `
                       <div class="pay-history-item">
                           <span>${window.formatDate(t.date)}:</span>
@@ -1104,23 +1085,21 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS ---
+  // --- NEW: MONTHLY REPORTS (UPDATED WITH CASH COLUMN) ---
   window.renderMonthReports = () => {
-      const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
+      const monthInput = document.getElementById('monthInput').value;
       if(!monthInput) return;
       document.getElementById('printDateMonth').innerText = "Monthly Report: " + monthInput;
 
-      // 1. Filter Data
       const daysInMonth = new Date(monthInput.split('-')[0], monthInput.split('-')[1], 0).getDate();
       const dailyData = {};
 
       for(let i=1; i<=daysInMonth; i++) {
           const d = i < 10 ? '0'+i : i;
           const fullDate = `${monthInput}-${d}`;
-          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0 };
+          dailyData[fullDate] = { orders: 0, sales: 0, collection: 0, expense: 0, cashOnly: 0 };
       }
 
-      // Fill Data from Ledger & Orders
       globalOrders.forEach(o => {
           if(o.date.startsWith(monthInput)) {
               dailyData[o.date].orders += 1;
@@ -1131,18 +1110,24 @@
       globalLedger.forEach(l => {
           if(l.date.startsWith(monthInput)) {
               const amt = parseFloat(l.amount || 0);
-              if(l.type === 'CREDIT') dailyData[l.date].collection += amt;
+              if(l.type === 'CREDIT') {
+                  dailyData[l.date].collection += amt;
+                  // Calculate ONLY CASH
+                  if(l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'))) {
+                      dailyData[l.date].cashOnly += amt;
+                  }
+              }
               if(l.type === 'EXPENSE') dailyData[l.date].expense += amt;
           }
       });
 
-      // 2. Render Dashboard Totals
-      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0;
+      let totalOrders = 0, totalSales = 0, totalColl = 0, totalExp = 0, totalCash = 0;
       Object.values(dailyData).forEach(d => {
           totalOrders += d.orders;
           totalSales += d.sales;
           totalColl += d.collection;
           totalExp += d.expense;
+          totalCash += d.cashOnly;
       });
 
       const dash = document.getElementById('monthDashboard');
@@ -1150,16 +1135,15 @@
         <div class="summary-card" style="border-left-color: #3498db; background-color: #e1f5fe;"><h4>Total Orders</h4><div class="value">${totalOrders}</div></div>
         <div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5;"><h4>Total Sales (Bill)</h4><div class="value">${window.formatMoney(totalSales)}</div></div>
         <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalColl)}</div></div>
-        <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Total Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
+        <div class="summary-card" style="border-left-color: #1565c0; background-color: #e3f2fd;"><h4>Total Cash (Counter)</h4><div class="value">${window.formatMoney(totalCash)}</div></div>
         <div class="summary-card" style="border-left-color: #2c3e50; background-color: #eceff1;"><h4>NET CASH PROFIT</h4><div class="value" style="color:#2c3e50;">${window.formatMoney(totalColl - totalExp)}</div></div>
       `;
 
-      // 3. Render Table
       const tbody = document.getElementById('monthTableBody');
       tbody.innerHTML = '';
       Object.keys(dailyData).sort().forEach(date => {
           const d = dailyData[date];
-          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return; // Skip empty days
+          if(d.orders === 0 && d.sales === 0 && d.collection === 0 && d.expense === 0) return;
           const net = d.collection - d.expense;
           tbody.innerHTML += `
             <tr>
@@ -1167,6 +1151,7 @@
                 <td>${d.orders}</td>
                 <td style="text-align:right;">${window.formatMoney(d.sales)}</td>
                 <td style="text-align:right; font-weight:bold; color:#27ae60;">${window.formatMoney(d.collection)}</td>
+                <td style="text-align:right; font-weight:bold; color:#1565c0;">${window.formatMoney(d.cashOnly)}</td>
                 <td style="text-align:right; font-weight:bold; color:#c0392b;">${window.formatMoney(d.expense)}</td>
                 <td style="text-align:right; font-weight:bold;">${window.formatMoney(net)}</td>
             </tr>
@@ -1234,7 +1219,7 @@
 
   // --- LEDGER ---
   window.populateLedgerSelect = () => {
-      // --- UPDATED LOGIC: Get unique customers from BOTH Orders AND Ledger ---
+      // Get unique customers from BOTH Orders AND Ledger
       const orderCusts = globalOrders.map(o => o.cust);
       const ledgerCusts = globalLedger.map(l => l.cust);
       
