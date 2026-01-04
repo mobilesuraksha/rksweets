@@ -1114,8 +1114,15 @@
 
               const due = ord.total - paidTotalEver;
               let boxDetailsStr = "";
+              // --- UPDATED: Now shows detailed items and rates below box group ---
               if(ord.boxGroups){
-                   boxDetailsStr = ord.boxGroups.map(bg => `${bg.groupQty} x ${bg.groupName}`).join(', ');
+                   boxDetailsStr = ord.boxGroups.map(bg => {
+                       const itemDetails = bg.items.map(i => `${i.name} (${i.qty} x ${i.rate})`).join(', ');
+                       return `<div style="margin-bottom:5px; border-bottom:1px dashed #eee;">
+                                   <b>${bg.groupQty} x ${bg.groupName}</b><br>
+                                   <span style="font-size:11px; color:#666;">${itemDetails}</span>
+                               </div>`;
+                   }).join('');
               }
 
               // Only show if delivered today OR has a payment entry today
