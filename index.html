@@ -1098,12 +1098,15 @@
               });
 
               // --- FIX: IF NO PAYMENT MADE, SHOW 'FULL CREDIT' BADGE ---
+              // --- UPDATED: Button wrapped in badge-actions to hide on print ---
               if(paidTotalEver === 0 && ord.total > 0) {
                    historyHtml = `
                    <div class="mode-badge" style="background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; border-left-color:#7b1fa2;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span><b>Full Credit</b> <span style="font-size:10px">(Udhaar)</span></span>
-                            <button class="btn-icon icon-edit" onclick="window.openPay('${ord.id}')" title="Add Payment">➕ Pay</button>
+                            <div class="badge-actions">
+                                <button class="btn-icon icon-edit" onclick="window.openPay('${ord.id}')" title="Add Payment">➕ Pay</button>
+                            </div>
                         </div>
                    </div>`;
               }
