@@ -1019,12 +1019,25 @@
           }
       });
 
+      // --- NEW: Calculate Total Credit (Udhaar) for Today's Orders ---
+      let totalUdhaar = 0;
+      const todaysOrders = globalOrders.filter(o => o.delDate === date);
+      todaysOrders.forEach(o => {
+          const paid = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === o.id)
+                                   .reduce((sum, l) => sum + parseFloat(l.amount||0), 0);
+          const due = o.total - paid;
+          if(due > 0) totalUdhaar += due;
+      });
+      // ----------------------------------------------------------------
+
       const dash = document.getElementById('summaryDashboard');
       let boxesHtml = `
           <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalInc)}</div></div>
           <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Less: Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
           <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>CASH IN HAND</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(totalInc - totalExp)}</div></div>
       `;
+      
+      // Payment Breakdown Cards
       for (const [mode, val] of Object.entries(modeCounts)) {
           if(val > 0) {
               let displayVal = val;
@@ -1033,6 +1046,13 @@
               boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${label}</h4><div class="value">${window.formatMoney(displayVal)}</div></div>`;
           }
       }
+
+      // --- ADD: Credit Total Card (Purple) ---
+      if(totalUdhaar > 0) {
+           boxesHtml += `<div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;"><h4>Credits Total (Udhaar)</h4><div class="value">${window.formatMoney(totalUdhaar)}</div></div>`;
+      }
+      // ----------------------------------------
+
       dash.innerHTML = boxesHtml;
 
       const tbody = document.querySelector('#summaryTable tbody');
@@ -1040,8 +1060,9 @@
       const uniqueOrds = [...new Set(globalLedger.filter(l => l.date === date && l.orderId).map(t=>t.orderId))];
       
       // FIX: Add orders delivered TODAY that have NO ledger entries yet (Full Credit / Udhaar cases like Nitin Kumar)
-      const todaysOrders = globalOrders.filter(o => o.delDate === date && !uniqueOrds.includes(o.id));
-      todaysOrders.forEach(o => uniqueOrds.push(o.id));
+      todaysOrders.forEach(o => {
+         if(!uniqueOrds.includes(o.id)) uniqueOrds.push(o.id);
+      });
 
       uniqueOrds.forEach(oid => {
           const ord = globalOrders.find(o=>o.id===oid);
