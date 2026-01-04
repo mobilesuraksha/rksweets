@@ -140,6 +140,9 @@
             body { background-color: white; font-size: 12px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; width: 100%; border: none; }
             .tab-menu, .btn, .filter-controls-screen, h1, #reportsTab, .badge-actions { display: none !important; }
+            /* UPDATED: Hide elements with class no-print */
+            .no-print { display: none !important; }
+            
             .tab-content { display: none; }
             .tab-content.active-print { display: block !important; }
             .data-table { font-size: 10px; width: 100%; border: 1px solid #000; }
@@ -392,8 +395,8 @@
             <tbody id="monthTableBody"></tbody>
         </table>
 
-        <h3 style="margin-top:30px; border-left:5px solid #f39c12; padding-left:10px;">Restaurant & Showroom Income Log</h3>
-        <table class="data-table" id="otherIncomeTable">
+        <h3 class="no-print" style="margin-top:30px; border-left:5px solid #f39c12; padding-left:10px;">Restaurant & Showroom Income Log</h3>
+        <table class="data-table no-print" id="otherIncomeTable">
             <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Mode</th><th class="filter-controls-screen">Action</th></tr></thead>
             <tbody></tbody>
         </table>
