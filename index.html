@@ -534,7 +534,7 @@
                 <select id="expCashier">
                     <option value="">-- Owner / General --</option>
                     <option value="Lokendra">Lokendra</option>
-                    <option value="Vikhas">Vikhas</option>
+                    <option value="Vikash">Vikash</option>
                     <option value="Nipul">Nipul</option>
                     <option value="Dubey">Dubey</option>
                     <option value="Arpit">Arpit</option> </select>
@@ -1106,7 +1106,7 @@
       // New: Cashier Data Structure (Added Arpit)
       const cashierData = {
           'Lokendra': { cash: 0, online: 0, expense: 0 },
-          'Vikhas': { cash: 0, online: 0, expense: 0 },
+          'Vikash': { cash: 0, online: 0, expense: 0 },
           'Nipul': { cash: 0, online: 0, expense: 0 },
           'Dubey': { cash: 0, online: 0, expense: 0 },
           'Arpit': { cash: 0, online: 0, expense: 0 }
@@ -1479,7 +1479,7 @@
       cashierSelect.innerHTML = '';
       
       let options = [];
-      if(source === 'Showroom') options = ['Lokendra', 'Vikhas', 'Arpit']; // Added Arpit
+      if(source === 'Showroom') options = ['Lokendra', 'Vikash', 'Arpit']; // Added Arpit
       else if(source === 'Restaurant') options = ['Nipul', 'Dubey', 'Arpit']; // Added Arpit
       
       options.forEach(name => {
