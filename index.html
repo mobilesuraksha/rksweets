@@ -831,7 +831,8 @@
   // --- INITIALIZATION ---
   window.onload = function() {
       const selectClasses = document.querySelectorAll('.payment-select');
-      const PAYMENT_MODES = ["Cash", "UPI", "Credits", "Counter Pay", "Bank Transfer", "Card", "Cheque", "Other"];
+      // REMOVED 'Credits' from PAYMENT_MODES dropdown to prevent confusion
+      const PAYMENT_MODES = ["Cash", "UPI", "Counter Pay", "Bank Transfer", "Card", "Cheque", "Other"];
       selectClasses.forEach(sel => {
           sel.innerHTML = '';
           PAYMENT_MODES.forEach(mode => sel.innerHTML += `<option value="${mode}">${mode}</option>`);
@@ -1179,14 +1180,15 @@
 
       // Payment Breakdown Cards (Exclude Cash and Counter Pay as they are handled above)
       for (const [mode, val] of Object.entries(modeCounts)) {
-          if(val > 0 && mode.toLowerCase() !== 'cash' && !mode.toLowerCase().includes('counter')) {
+          // EXCLUDE 'Credits' mode from showing up in Summary Cards to prevent duplicate/confusion
+          if(val > 0 && mode.toLowerCase() !== 'cash' && !mode.toLowerCase().includes('counter') && mode !== 'Credits') {
               boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${mode} Total</h4><div class="value">${window.formatMoney(val)}</div></div>`;
           }
       }
 
-      // --- ADD: Credit Total Card (Purple) ---
+      // --- ADD: Credit Total Card (Purple) - RENAMED to Pending Due ---
       if(totalUdhaar > 0) {
-           boxesHtml += `<div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;"><h4>Credits Total (Udhaar)</h4><div class="value">${window.formatMoney(totalUdhaar)}</div></div>`;
+           boxesHtml += `<div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;"><h4>Total Pending (Udhaar)</h4><div class="value">${window.formatMoney(totalUdhaar)}</div></div>`;
       }
       // ----------------------------------------
 
