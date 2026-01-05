@@ -369,10 +369,11 @@
         <table class="data-table" id="cashierSummaryTable">
             <thead>
                 <tr>
-                    <th style="width:40%">Cashier Name</th>
-                    <th style="width:20%; text-align:right;">Cash Sale</th>
-                    <th style="width:20%; text-align:right;">Online Sale (UPI/Card)</th>
-                    <th style="width:20%; text-align:right;">Total Sale</th>
+                    <th style="width:30%">Cashier Name</th>
+                    <th style="width:15%; text-align:right;">Cash Sale</th>
+                    <th style="width:15%; text-align:right;">Online Sale</th>
+                    <th style="width:20%; text-align:right; color:#c0392b;">Less: Expense</th>
+                    <th style="width:20%; text-align:right; font-weight:bold; color:#27ae60;">Net Cash Handover</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -527,14 +528,26 @@
                 <label>Payment Mode</label>
                 <select id="expMode" class="payment-select"></select>
             </div>
-            <div class="form-group"><label>Details</label><input type="text" id="expDetail" placeholder="Rent, Salary, etc"></div>
+            
+            <div class="form-group">
+                <label>Select Cashier (Who Spent?)</label>
+                <select id="expCashier">
+                    <option value="">-- Owner / General --</option>
+                    <option value="Lokendra">Lokendra</option>
+                    <option value="Vikhas">Vikhas</option>
+                    <option value="Nipul">Nipul</option>
+                    <option value="Dubey">Dubey</option>
+                </select>
+            </div>
+
+            <div class="form-group"><label>Details</label><input type="text" id="expDetail" placeholder="Rent, Tea, Salary, etc"></div>
             <div class="form-group" style="align-self: flex-end;">
                 <button class="btn btn-danger" onclick="window.addExpense()">Add Expense (Cloud)</button>
             </div>
         </div>
         <div class="table-responsive">
             <table class="data-table" id="expenseTable">
-                <thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Mode</th><th class="filter-controls-screen">Action</th></tr></thead>
+                <thead><tr><th>Date</th><th>Detail</th><th>Spent By</th><th>Amount</th><th>Mode</th><th class="filter-controls-screen">Action</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -1092,10 +1105,10 @@
 
       // New: Cashier Data Structure
       const cashierData = {
-          'Lokendra': { cash: 0, online: 0 },
-          'Vikhas': { cash: 0, online: 0 },
-          'Nipul': { cash: 0, online: 0 },
-          'Dubey': { cash: 0, online: 0 }
+          'Lokendra': { cash: 0, online: 0, expense: 0 },
+          'Vikhas': { cash: 0, online: 0, expense: 0 },
+          'Nipul': { cash: 0, online: 0, expense: 0 },
+          'Dubey': { cash: 0, online: 0, expense: 0 }
       };
 
       globalLedger.forEach(l => {
@@ -1122,6 +1135,10 @@
 
               } else if(l.type === 'EXPENSE') {
                   totalExp += amt;
+                  // If expense has a cashier attached
+                  if(l.cashier && cashierData[l.cashier]) {
+                      cashierData[l.cashier].expense += amt;
+                  }
               }
           }
       });
@@ -1250,23 +1267,26 @@
       });
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   
-      // NEW: Render Cashier Table
+      // NEW: Render Cashier Table (UPDATED to show Expense and Net)
       const cashierTbody = document.querySelector('#cashierSummaryTable tbody');
       cashierTbody.innerHTML = '';
       for (const [name, stats] of Object.entries(cashierData)) {
-          const total = stats.cash + stats.online;
-          if(total > 0 || stats.cash > 0 || stats.online > 0) {
+          // If any activity (Sale OR Expense)
+          if(stats.cash > 0 || stats.online > 0 || stats.expense > 0) {
+              const netHandover = stats.cash - stats.expense; // Net = Cash Collected - Expense
+              
               cashierTbody.innerHTML += `
                 <tr>
                     <td><b>${name}</b></td>
                     <td style="text-align:right; color:#2e7d32;">${window.formatMoney(stats.cash)}</td>
                     <td style="text-align:right; color:#1565c0;">${window.formatMoney(stats.online)}</td>
-                    <td style="text-align:right; font-weight:bold;">${window.formatMoney(total)}</td>
+                    <td style="text-align:right; color:#c0392b;">${window.formatMoney(stats.expense)}</td>
+                    <td style="text-align:right; font-weight:bold; border:1px solid #27ae60;">${window.formatMoney(netHandover)}</td>
                 </tr>
               `;
           }
       }
-      if(cashierTbody.innerHTML === '') cashierTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#777;">No staff entries for today.</td></tr>';
+      if(cashierTbody.innerHTML === '') cashierTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#777;">No staff entries for today.</td></tr>';
   }
 
   // --- NEW: MONTHLY REPORTS (UPDATED: COUNTER PAY MERGED INTO SHOWROOM) ---
@@ -1738,14 +1758,42 @@
       alert("Payment Updated in Cloud");
   }
 
-  // --- EXPENSES ---
+  // --- EXPENSES (UPDATED: Added addExpense function with Cashier support) ---
+  window.addExpense = async () => {
+      const id = genId();
+      const date = document.getElementById('expDate').value;
+      const amt = parseFloat(document.getElementById('expAmt').value);
+      const mode = document.getElementById('expMode').value;
+      const detail = document.getElementById('expDetail').value;
+      const cashier = document.getElementById('expCashier').value; // Get Cashier Name
+
+      if(!date || !amt) return alert("Please Enter Date and Amount");
+
+      await setDoc(doc(db, "ledger", id), {
+          id: id,
+          type: 'EXPENSE',
+          date: date,
+          amount: amt,
+          mode: mode,
+          desc: detail,
+          cashier: cashier // Save cashier name in DB
+      });
+
+      // Clear Inputs
+      document.getElementById('expAmt').value = '';
+      document.getElementById('expDetail').value = '';
+      alert("Expense Added to Cloud");
+  }
+
   window.renderExpenses = () => {
       document.getElementById('expDate').value = today;
       const ledger = globalLedger.filter(l => l.type === 'EXPENSE');
       const tbody = document.querySelector('#expenseTable tbody');
       tbody.innerHTML = '';
       ledger.reverse().forEach(l => {
-          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${l.desc}</td><td style="color:red; font-weight:bold">${l.amount}</td><td>${l.mode}</td><td class="filter-controls-screen"><button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">X</button></td></tr>`;
+          // Show Cashier name if exists
+          const spentBy = l.cashier ? l.cashier : 'General/Owner';
+          tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${l.desc}</td><td>${spentBy}</td><td style="color:red; font-weight:bold">${window.formatMoney(l.amount)}</td><td>${l.mode}</td><td class="filter-controls-screen"><button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">X</button></td></tr>`;
       });
   }
 
