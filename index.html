@@ -533,6 +533,13 @@
                 <button class="btn btn-primary" onclick="window.checkPassAndImport()">Restore Backup (Password)</button>
                 <input type="file" id="importFile" style="display:none" onchange="window.importData(this)">
             </div>
+            
+            <div class="admin-card" style="border-top-color: #c0392b;">
+                <span class="icon-large">🗑️</span>
+                <h3>Reset / Wipe Data</h3>
+                <p>Delete ALL Orders & Ledger History.</p>
+                <button class="btn btn-danger" onclick="window.dangerResetSystem()">Delete All Data (Password)</button>
+            </div>
 
             <div class="admin-card" style="border-top-color: #27ae60;">
                 <span class="icon-large">📊</span>
@@ -1635,18 +1642,6 @@
       });
   }
 
-  window.addExpense = async () => {
-      const date = document.getElementById('expDate').value;
-      const amt = document.getElementById('expAmt').value;
-      const desc = document.getElementById('expDetail').value;
-      const mode = document.getElementById('expMode').value;
-      if(!amt || !desc) return alert("Fill all fields");
-      const id = genId();
-      await setDoc(doc(db, "ledger", id), { id: id, type: 'EXPENSE', date: date, amount: amt, desc: desc, mode: mode });
-      document.getElementById('expAmt').value = '';
-      alert("Expense Added");
-  }
-
   // --- IMPORT/EXPORT (SYSTEM ADMIN) - PASSWORD PROTECTED ---
   
   // UPDATED: Now prompts for password before export
@@ -1710,6 +1705,42 @@
       // Reset input so same file can be selected again if needed
       input.value = '';
   }
+
+  // --- NEW: DANGER - DELETE ALL DATA ---
+  window.dangerResetSystem = async () => {
+      // 1. Password Check
+      const p = prompt("🔴 DANGER: Enter Admin Password to DELETE EVERYTHING:");
+      if (p !== "1234") return alert("❌ Wrong Password!");
+
+      // 2. Final Confirmation
+      const confirmMsg = "⚠ FINAL WARNING ⚠\n\nThis will permanently delete:\n- ALL Orders\n- ALL Payments/Ledger Entries\n\nThis action CANNOT be undone.\n\nType 'DELETE' to confirm:";
+      if(prompt(confirmMsg) !== "DELETE") return alert("Cancelled.");
+
+      // 3. Execution
+      try {
+           // Using Promise.all for simplicity without complex batch chunking
+           const deletePromises = [];
+           
+           // Queue Order Deletions
+           globalOrders.forEach(o => {
+               deletePromises.push(deleteDoc(doc(db, "orders", o.id)));
+           });
+
+           // Queue Ledger Deletions
+           globalLedger.forEach(l => {
+               deletePromises.push(deleteDoc(doc(db, "ledger", l.id)));
+           });
+
+           await Promise.all(deletePromises);
+           
+           alert(`✅ SYSTEM RESET COMPLETE.\nAll Orders and Ledger entries have been wiped.`);
+           location.reload(); 
+
+      } catch (err) {
+          alert("Error during reset: " + err.message);
+      }
+  }
+
 </script>
 </body>
 </html>
