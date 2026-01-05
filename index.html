@@ -156,7 +156,7 @@
                 font-weight: bold; 
                 margin-bottom: 10px; 
                 text-decoration: underline;
-                text-align: right; /* Right Aligned as requested */
+                text-align: right;
                 width: 100%;
             }
             
@@ -1217,7 +1217,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS (NO CHANGE TO LOGIC, JUST DATE ALIGN) ---
+  // --- NEW: MONTHLY REPORTS (UPDATED: COUNTER PAY MERGED INTO SHOWROOM) ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
@@ -1233,11 +1233,11 @@
           dailyData[fullDate] = { 
               orders: 0, 
               sales: 0, 
-              sweets: 0, // Sweets Collection
-              restCash: 0, // New
-              restOnline: 0, // New
-              showCash: 0, // New
-              showOnline: 0, // New
+              sweets: 0, // Sweets Collection (NON-Showroom/Counter)
+              restCash: 0, 
+              restOnline: 0, 
+              showCash: 0, // Showroom + Counter Pay
+              showOnline: 0, 
               expense: 0 
           };
       }
@@ -1254,12 +1254,18 @@
       globalLedger.forEach(l => {
           if(l.date.startsWith(monthInput) && dailyData[l.date]) {
               const amt = parseFloat(l.amount || 0);
-              // MERGE COUNTER PAY INTO CASH FOR MONTHLY REPORT AS REQUESTED
-              const isCash = l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'));
+              const mode = (l.mode || '').toLowerCase();
+              const isCounterPay = mode.includes('counter');
+              const isCash = mode.includes('cash') || isCounterPay; // Treat Counter Pay as Cash logic for grouping
 
               if(l.type === 'CREDIT') {
-                  // Sweets Collection
-                  dailyData[l.date].sweets += amt;
+                  // If mode is Counter Pay, user wants it in Showroom Cash
+                  if(isCounterPay) {
+                      dailyData[l.date].showCash += amt;
+                  } else {
+                      // Otherwise it stays in Sweets collection
+                      dailyData[l.date].sweets += amt;
+                  }
               }
               else if(l.type === 'EXTRA_INCOME') {
                   // Separate based on source AND mode
