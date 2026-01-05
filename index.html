@@ -148,7 +148,18 @@
             .data-table { font-size: 10px; width: 100%; border: 1px solid #000; }
             .data-table th, .data-table td { border: 1px solid #000 !important; color: black; padding: 4px !important; }
             .data-table th { background-color: #eee !important; font-weight: bold; }
-            .print-header-date { display: block !important; font-size: 14px; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
+            
+            /* UPDATED: Date Right Alignment */
+            .print-header-date { 
+                display: block !important; 
+                font-size: 14px; 
+                font-weight: bold; 
+                margin-bottom: 10px; 
+                text-decoration: underline;
+                text-align: right; /* Right Aligned as requested */
+                width: 100%;
+            }
+            
             h2 { font-size: 16px !important; margin: 5px 0 10px 0 !important; border: none !important; padding: 0 !important; text-align: center; text-transform: uppercase; }
             .print-footer { display: flex !important; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
             .print-footer span { border-top: 1px solid #000; padding-top: 5px; width: 200px; text-align: center; font-weight: bold; }
@@ -601,6 +612,7 @@
         <label>Mode</label>
         <select id="incMode" style="margin-bottom:10px;">
             <option value="Cash">Cash</option>
+            <option value="Counter Pay">Counter Pay</option>
             <option value="UPI">UPI (Online)</option>
             <option value="Card">Card</option>
             <option value="Bank Transfer">Bank Transfer</option>
@@ -761,7 +773,8 @@
   // UPDATED: Added CREDITS styling for dashboard card
   window.getCardStyle = (mode) => {
         mode = (mode || '').toUpperCase();
-        if(mode.includes('CASH') || mode.includes('COUNTER')) return 'border-left-color: #4caf50; background-color: #e8f5e9; color: #2e7d32;';
+        if(mode.includes('CASH')) return 'border-left-color: #4caf50; background-color: #e8f5e9; color: #2e7d32;';
+        if(mode.includes('COUNTER')) return 'border-left-color: #009688; background-color: #e0f2f1; color: #00695c;';
         if(mode.includes('UPI') || mode.includes('PAYTM') || mode.includes('ONLINE')) return 'border-left-color: #2196f3; background-color: #e3f2fd; color: #1565c0;';
         if(mode.includes('CARD') || mode.includes('CREDIT')) return 'border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;';
         return 'border-left-color: #607d8b; background-color: #eceff1; color: #455a64;';
@@ -1055,7 +1068,9 @@
       const date = document.getElementById('summaryDateFilter').value;
       document.getElementById('printDateSum').textContent = "Summary Date: " + window.formatDate(date);
       
-      let totalInc = 0, totalExp = 0, modeCounts = {}; 
+      let totalInc = 0, totalExp = 0, modeCounts = {};
+      let totalCashOnly = 0; // Strictly Cash
+      let totalCounterPay = 0; // Strictly Counter Pay
 
       globalLedger.forEach(l => {
           if(l.date === date) {
@@ -1064,13 +1079,18 @@
                   totalInc += amt;
                   const m = (l.mode || 'Unknown').trim();
                   modeCounts[m] = (modeCounts[m] || 0) + amt;
+                  
+                  // Separate accumulation for Cash and Counter Pay
+                  if(m.toLowerCase() === 'cash') totalCashOnly += amt;
+                  if(m.toLowerCase().includes('counter')) totalCounterPay += amt;
+
               } else if(l.type === 'EXPENSE') {
                   totalExp += amt;
               }
           }
       });
 
-      // --- NEW: Calculate Total Credit (Udhaar) for Today's Orders ---
+      // --- Calculate Total Credit (Udhaar) for Today's Orders ---
       let totalUdhaar = 0;
       const todaysOrders = globalOrders.filter(o => o.delDate === date);
       todaysOrders.forEach(o => {
@@ -1082,19 +1102,25 @@
       // ----------------------------------------------------------------
 
       const dash = document.getElementById('summaryDashboard');
+      
+      // Calculate NET CASH (Strict Cash - Expenses)
+      const netCashHand = totalCashOnly - totalExp;
+
       let boxesHtml = `
           <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalInc)}</div></div>
           <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Less: Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
-          <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>CASH IN HAND</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(totalInc - totalExp)}</div></div>
+          <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>NET CASH (HAND)</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(netCashHand)}</div></div>
       `;
       
-      // Payment Breakdown Cards
+      // Add Counter Pay Card Separately if exists
+      if(totalCounterPay > 0) {
+          boxesHtml += `<div class="summary-card" style="border-left-color: #009688; background-color: #e0f2f1; color: #00695c;"><h4>Counter Pay</h4><div class="value">${window.formatMoney(totalCounterPay)}</div></div>`;
+      }
+
+      // Payment Breakdown Cards (Exclude Cash and Counter Pay as they are handled above)
       for (const [mode, val] of Object.entries(modeCounts)) {
-          if(val > 0) {
-              let displayVal = val;
-              let label = mode + " Total";
-              if(mode.toUpperCase().includes('CASH')) { displayVal = val - totalExp; label = mode + " (Net)"; }
-              boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${label}</h4><div class="value">${window.formatMoney(displayVal)}</div></div>`;
+          if(val > 0 && mode.toLowerCase() !== 'cash' && !mode.toLowerCase().includes('counter')) {
+              boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${mode} Total</h4><div class="value">${window.formatMoney(val)}</div></div>`;
           }
       }
 
@@ -1191,7 +1217,7 @@
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   }
 
-  // --- NEW: MONTHLY REPORTS (UPDATED TO INCLUDE EXTRA INCOME SEPARATELY) ---
+  // --- NEW: MONTHLY REPORTS (NO CHANGE TO LOGIC, JUST DATE ALIGN) ---
   window.renderMonthReports = () => {
       const monthInput = document.getElementById('monthInput').value; // Format: YYYY-MM
       if(!monthInput) return;
@@ -1228,6 +1254,7 @@
       globalLedger.forEach(l => {
           if(l.date.startsWith(monthInput) && dailyData[l.date]) {
               const amt = parseFloat(l.amount || 0);
+              // MERGE COUNTER PAY INTO CASH FOR MONTHLY REPORT AS REQUESTED
               const isCash = l.mode && (l.mode.toLowerCase().includes('cash') || l.mode.toLowerCase().includes('counter'));
 
               if(l.type === 'CREDIT') {
