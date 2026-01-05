@@ -537,7 +537,9 @@
                     <option value="Vikash">Vikash</option>
                     <option value="Nipul">Nipul</option>
                     <option value="Dubey">Dubey</option>
-                    <option value="Arpit">Arpit</option> </select>
+                    <option value="Arpit">Arpit</option>
+                    <option value="Extra Cash">Extra Cash (General)</option>
+                </select>
             </div>
 
             <div class="form-group"><label>Details</label><input type="text" id="expDetail" placeholder="Rent, Tea, Salary, etc"></div>
@@ -1103,7 +1105,7 @@
       let totalCashOnly = 0; // Strictly Cash
       let totalCounterPay = 0; // Strictly Counter Pay
 
-      // New: Cashier Data Structure (Added Arpit)
+      // New: Dynamic Cashier Data Structure
       const cashierData = {
           'Lokendra': { cash: 0, online: 0, expense: 0 },
           'Vikash': { cash: 0, online: 0, expense: 0 },
@@ -1125,7 +1127,10 @@
                   if(m.toLowerCase().includes('counter')) totalCounterPay += amt;
                   
                   // New: Aggregate Cashier Stats (Only from EXTRA_INCOME where cashier is defined)
-                  if(l.type === 'EXTRA_INCOME' && l.cashier && cashierData[l.cashier]) {
+                  if(l.type === 'EXTRA_INCOME' && l.cashier) {
+                      // Dynamically create cashier entry if not exists (for Extra Cash etc.)
+                      if(!cashierData[l.cashier]) cashierData[l.cashier] = { cash: 0, online: 0, expense: 0 };
+                      
                       const isCashierCash = m.toLowerCase() === 'cash' || m.toLowerCase().includes('counter');
                       if(isCashierCash) {
                           cashierData[l.cashier].cash += amt;
@@ -1137,7 +1142,8 @@
               } else if(l.type === 'EXPENSE') {
                   totalExp += amt;
                   // If expense has a cashier attached
-                  if(l.cashier && cashierData[l.cashier]) {
+                  if(l.cashier) {
+                      if(!cashierData[l.cashier]) cashierData[l.cashier] = { cash: 0, online: 0, expense: 0 };
                       cashierData[l.cashier].expense += amt;
                   }
               }
@@ -1472,15 +1478,15 @@
 
   // --- NEW FUNCTIONS: OPEN, EDIT, SAVE OTHER INCOME ---
   
-  // Update Dropdown Logic (UPDATED: Added Arpit to both)
+  // Update Dropdown Logic (UPDATED: Added Extra Cash options)
   window.updateCashierDropdown = () => {
       const source = document.getElementById('incSource').value;
       const cashierSelect = document.getElementById('incCashier');
       cashierSelect.innerHTML = '';
       
       let options = [];
-      if(source === 'Showroom') options = ['Lokendra', 'Vikash', 'Arpit']; // Added Arpit
-      else if(source === 'Restaurant') options = ['Nipul', 'Dubey', 'Arpit']; // Added Arpit
+      if(source === 'Showroom') options = ['Lokendra', 'Vikash', 'Arpit', 'Extra Cash (Showroom)']; 
+      else if(source === 'Restaurant') options = ['Nipul', 'Dubey', 'Arpit', 'Extra Cash (Rest.)']; 
       
       options.forEach(name => {
           cashierSelect.innerHTML += `<option value="${name}">${name}</option>`;
