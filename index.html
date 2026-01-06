@@ -96,15 +96,17 @@
         .data-table th, .data-table td { padding: 6px 8px; border: 1px solid #eee; text-align: left; vertical-align: top; word-wrap: break-word;}
         .data-table th { background-color: #f2f2f2; color: #333; font-weight: 600; }
         
-        /* Summary Dashboard */
-        #summaryDashboard, #monthDashboard { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        /* --- UPDATED SUMMARY DASHBOARD (SMALLER SIZE) --- */
+        #summaryDashboard, #monthDashboard { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .summary-card { 
-            flex: 1; min-width: 160px; padding: 15px; border-radius: 8px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #ccc; background-color: white; 
+            flex: 1; min-width: 110px; /* Smaller Width */
+            padding: 8px; /* Smaller Padding */
+            border-radius: 6px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 4px solid #ccc; background-color: white; 
             display: flex; flex-direction: column; justify-content: center;
         }
-        .summary-card h4 { margin: 0 0 5px 0; font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-        .summary-card .value { font-size: 20px; font-weight: 700; color: #333; }
+        .summary-card h4 { margin: 0 0 2px 0; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; } /* Smaller Font */
+        .summary-card .value { font-size: 15px; font-weight: 700; color: #333; } /* Smaller Value Font */
 
         /* Stacked Payment Badges with Actions */
         .mode-badge {
@@ -129,6 +131,12 @@
         .ls-item.debit { border-left-color: #2196f3; background-color: #e3f2fd; } 
         .ls-item.credit { border-left-color: #4caf50; background-color: #e8f5e9; } 
         .ls-item.balance { border-left-color: #f44336; background-color: #ffebee; }
+
+        /* --- BOLD FONT FOR CASHIER TABLE --- */
+        #cashierSummaryTable tbody tr td {
+            font-weight: bold;
+            font-size: 13px;
+        }
 
         /* --- PRINT STYLES --- */
         .ledger-print-head { display: none; }
