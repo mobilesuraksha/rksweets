@@ -917,18 +917,30 @@
       document.getElementById('balanceShow').value = (netTotal - adv).toFixed(2);
   }
 
+  // --- UPDATED SAVE LOGIC: Strict Duplicate Check & Allow Saving New on Cancel ---
   document.getElementById('orderForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const orderNo = document.getElementById('orderNo').value.trim();
-      const existingOrder = globalOrders.find(o => o.no === orderNo);
+      const currentCust = document.getElementById('customerName').value.trim();
+      const currentMobile = document.getElementById('mobile').value.trim();
+
+      // STRICT CHECK: OrderNo AND Name AND Mobile must match to trigger duplicate prompt
+      const existingOrder = globalOrders.find(o => 
+          o.no === orderNo && 
+          o.cust.toLowerCase() === currentCust.toLowerCase() && 
+          o.mobile === currentMobile
+      );
+
       let isDuplicateMerge = false;
 
       if(existingOrder && !document.getElementById('orderId').value) {
-          if(confirm(`⚠️ Order No "${orderNo}" already exists for customer "${existingOrder.cust}".\n\nDo you want to ADD these new items to their account? (Yes = Merge, No = Cancel)`)) {
+          // If strictly matches, ask to merge
+          if(confirm(`⚠️ Order #${orderNo} already exists for ${currentCust}.\n\nDo you want to MERGE items to this order?\n\n(Click OK to Merge, Click Cancel to Save as NEW Order)`)) {
               isDuplicateMerge = true;
           } else {
-              return; 
+              // User clicked Cancel -> Save as NEW Order (Do not return)
+              isDuplicateMerge = false; 
           }
       }
 
@@ -952,6 +964,7 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
+      // If merging, use existing ID. If NOT merging (even if duplicate Order No), generate NEW ID.
       let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
       
       const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
