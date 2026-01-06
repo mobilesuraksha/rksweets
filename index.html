@@ -983,13 +983,14 @@
                   delDate: document.getElementById('deliveryDate').value
               });
 
+              // Create NEW Ledger Entry for the merged amount with TODAY'S DATE
               const additionalDebitId = genId();
               await setDoc(doc(db, "ledger", additionalDebitId), {
                   id: additionalDebitId,
                   type: 'DEBIT',
                   orderId: id,
                   cust: existingOrder.cust,
-                  date: document.getElementById('orderDate').value,
+                  date: document.getElementById('orderDate').value, // Use the new date selected
                   amount: currentNewTotal,
                   desc: `Order #${orderNo} (Added Items)`
               });
@@ -1116,8 +1117,8 @@
       document.getElementById('printDateSum').textContent = "Summary Date: " + window.formatDate(date);
       
       let totalInc = 0, totalExp = 0, modeCounts = {};
-      let totalCashOnly = 0; // Strictly Cash
-      let totalCounterPay = 0; // Strictly Counter Pay
+      let totalSweetsCash = 0; // Strictly Cash from Sweets Orders
+      let totalExtraCash = 0; // Cash from Extra Income
 
       // New: Dynamic Cashier Data Structure
       const cashierData = {
@@ -1131,31 +1132,32 @@
       globalLedger.forEach(l => {
           if(l.date === date) {
               const amt = parseFloat(l.amount) || 0;
-              if(l.type === 'CREDIT' || l.type === 'EXTRA_INCOME') {
+              const m = (l.mode || 'Unknown').trim();
+              const isCash = m.toLowerCase() === 'cash';
+
+              if(l.type === 'CREDIT') {
                   totalInc += amt;
-                  const m = (l.mode || 'Unknown').trim();
                   modeCounts[m] = (modeCounts[m] || 0) + amt;
+                  // If payment for Sweets (CREDIT) is Cash
+                  if(isCash) totalSweetsCash += amt;
+              } 
+              else if(l.type === 'EXTRA_INCOME') {
+                  totalInc += amt;
+                  // If Extra Income is Cash
+                  if(isCash || m.toLowerCase().includes('counter')) totalExtraCash += amt;
                   
-                  // Separate accumulation for Cash and Counter Pay
-                  if(m.toLowerCase() === 'cash') totalCashOnly += amt;
-                  if(m.toLowerCase().includes('counter')) totalCounterPay += amt;
-                  
-                  // New: Aggregate Cashier Stats (Only from EXTRA_INCOME where cashier is defined)
-                  if(l.type === 'EXTRA_INCOME' && l.cashier) {
-                      // Dynamically create cashier entry if not exists (for Extra Cash etc.)
+                  // Handle Cashier Logic
+                  if(l.cashier) {
                       if(!cashierData[l.cashier]) cashierData[l.cashier] = { cash: 0, online: 0, expense: 0 };
-                      
-                      const isCashierCash = m.toLowerCase() === 'cash' || m.toLowerCase().includes('counter');
-                      if(isCashierCash) {
+                      if(isCash || m.toLowerCase().includes('counter')) {
                           cashierData[l.cashier].cash += amt;
                       } else {
                           cashierData[l.cashier].online += amt;
                       }
                   }
-
-              } else if(l.type === 'EXPENSE') {
+              } 
+              else if(l.type === 'EXPENSE') {
                   totalExp += amt;
-                  // If expense has a cashier attached
                   if(l.cashier) {
                       if(!cashierData[l.cashier]) cashierData[l.cashier] = { cash: 0, online: 0, expense: 0 };
                       cashierData[l.cashier].expense += amt;
@@ -1177,33 +1179,26 @@
 
       const dash = document.getElementById('summaryDashboard');
       
-      // Calculate NET CASH (Strict Cash - Expenses)
-      const netCashHand = totalCashOnly - totalExp;
+      // Calculate NET CASH (Sweets Cash - Expenses)
+      const netSweetsCashHand = totalSweetsCash - totalExp;
 
       let boxesHtml = `
-          <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Collection</h4><div class="value">${window.formatMoney(totalInc)}</div></div>
+          <div class="summary-card" style="border-left-color: #4caf50; background-color: #e8f5e9;"><h4>Total Sweets Coll.</h4><div class="value">${window.formatMoney(totalSweetsCash)}</div></div>
           <div class="summary-card" style="border-left-color: #f44336; background-color: #ffebee;"><h4>Less: Expenses</h4><div class="value" style="color:#c62828;">- ${window.formatMoney(totalExp)}</div></div>
-          <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>NET CASH (HAND)</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(netCashHand)}</div></div>
+          <div class="summary-card" style="border-left-color: #2196f3; background-color: #e3f2fd;"><h4>NET CASH (SWEETS)</h4><div class="value" style="color:#1565c0; border:2px solid #2196f3; padding:5px;">${window.formatMoney(netSweetsCashHand)}</div></div>
+          <div class="summary-card" style="border-left-color: #009688; background-color: #e0f2f1; color: #00695c;"><h4>Total Staff/Extra Cash</h4><div class="value">${window.formatMoney(totalExtraCash)}</div></div>
       `;
       
-      // Add Counter Pay Card Separately if exists
-      if(totalCounterPay > 0) {
-          boxesHtml += `<div class="summary-card" style="border-left-color: #009688; background-color: #e0f2f1; color: #00695c;"><h4>Counter Pay</h4><div class="value">${window.formatMoney(totalCounterPay)}</div></div>`;
-      }
-
-      // Payment Breakdown Cards (Exclude Cash and Counter Pay as they are handled above)
+      // Payment Breakdown Cards
       for (const [mode, val] of Object.entries(modeCounts)) {
-          // EXCLUDE 'Credits' mode from showing up in Summary Cards to prevent duplicate/confusion
-          if(val > 0 && mode.toLowerCase() !== 'cash' && !mode.toLowerCase().includes('counter') && mode !== 'Credits') {
+          if(val > 0 && mode !== 'Credits') {
               boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${mode} Total</h4><div class="value">${window.formatMoney(val)}</div></div>`;
           }
       }
 
-      // --- ADD: Credit Total Card (Purple) - RENAMED to Pending Due ---
       if(totalUdhaar > 0) {
            boxesHtml += `<div class="summary-card" style="border-left-color: #9c27b0; background-color: #f3e5f5; color: #7b1fa2;"><h4>Total Pending (Udhaar)</h4><div class="value">${window.formatMoney(totalUdhaar)}</div></div>`;
       }
-      // ----------------------------------------
 
       dash.innerHTML = boxesHtml;
 
@@ -1211,7 +1206,7 @@
       tbody.innerHTML = '';
       const uniqueOrds = [...new Set(globalLedger.filter(l => l.date === date && l.orderId).map(t=>t.orderId))];
       
-      // FIX: Add orders delivered TODAY that have NO ledger entries yet (Full Credit / Udhaar cases like Nitin Kumar)
+      // FIX: Add orders delivered TODAY that have NO ledger entries yet
       todaysOrders.forEach(o => {
          if(!uniqueOrds.includes(o.id)) uniqueOrds.push(o.id);
       });
@@ -1249,7 +1244,6 @@
                   }
               });
 
-              // --- FIX: IF NO PAYMENT MADE, SHOW 'FULL CREDIT' BADGE ---
               if(paidTotalEver === 0 && ord.total > 0) {
                    historyHtml = `
                    <div class="mode-badge" style="background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; border-left-color:#7b1fa2;">
@@ -1261,7 +1255,6 @@
                         </div>
                    </div>`;
               }
-              // --------------------------------------------------------
 
               const due = ord.total - paidTotalEver;
               let boxDetailsStr = "";
@@ -1275,7 +1268,6 @@
                    }).join('');
               }
 
-              // Only show if delivered today OR has a payment entry today
               if(ord.delDate === date || historyHtml.includes('mode-badge')) {
                   tbody.innerHTML += `<tr><td>${ord.no}</td><td>${window.formatDate(ord.delDate)}</td><td>${ord.cust}</td><td>${boxDetailsStr}</td><td>${window.formatMoney(ord.total)}</td><td>${historyHtml}</td><td style="color:${due>0?'red':'green'}">${window.formatMoney(due)}</td></tr>`;
               }
@@ -1289,14 +1281,12 @@
       });
       expTbody.innerHTML += `<tr style="background:#ffebee; font-weight:bold;"><td colspan="2" style="text-align:right;">Total:</td><td style="color:#c0392b;">${window.formatMoney(totalExp)}</td></tr>`;
   
-      // NEW: Render Cashier Table (UPDATED to show Expense and Net)
+      // NEW: Render Cashier Table
       const cashierTbody = document.querySelector('#cashierSummaryTable tbody');
       cashierTbody.innerHTML = '';
       for (const [name, stats] of Object.entries(cashierData)) {
-          // If any activity (Sale OR Expense)
           if(stats.cash > 0 || stats.online > 0 || stats.expense > 0) {
-              const netHandover = stats.cash - stats.expense; // Net = Cash Collected - Expense
-              
+              const netHandover = stats.cash - stats.expense;
               cashierTbody.innerHTML += `
                 <tr>
                     <td><b>${name}</b></td>
@@ -1665,6 +1655,7 @@
           return;
       }
       
+      // SORT BY DATE ASCENDING
       const ledger = globalLedger.filter(l => l.cust === cust).sort((a,b) => new Date(a.date) - new Date(b.date));
       const linkedOrder = globalOrders.find(o => o.cust === cust);
       
@@ -1701,7 +1692,14 @@
           }
           // --------------------------------------------------
 
-          const action = (l.type === 'CREDIT' || l.type === 'DISCOUNT') ? `<button class="btn btn-sm btn-warning" onclick="window.openEditPayment('${l.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">Del</button>` : '';
+          // ACTION BUTTONS FOR LEDGER
+          let action = "";
+          if (l.type === 'CREDIT' || l.type === 'DISCOUNT') {
+             action = `<button class="btn btn-sm btn-warning" onclick="window.openEditPayment('${l.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="window.deleteTransaction('${l.id}')">Del</button>`;
+          } else if (l.type === 'DEBIT') {
+             // Allow Delete for Debit entries too (which deletes the order)
+             action = `<button class="btn btn-sm btn-danger" onclick="window.deleteOrder('${l.orderId}')">Del</button>`;
+          }
 
           tbody.innerHTML += `<tr><td>${window.formatDate(l.date)}</td><td>${desc} <small>(${l.mode || 'Bill'})</small>${itemDetails}</td><td style="text-align:right;">${debit}</td><td style="text-align:right;">${credit}</td><td style="text-align:right; font-weight:bold;">${window.formatMoney(runningBalance)}</td><td class="filter-controls-screen">${action}</td></tr>`;
       });
