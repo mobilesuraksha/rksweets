@@ -942,12 +942,11 @@
 
       let isDuplicateMerge = false;
 
+      // Ask User what to do
       if(existingOrder && !document.getElementById('orderId').value) {
-          // If strictly matches, ask to merge
-          if(confirm(`⚠️ Order #${orderNo} already exists for ${currentCust}.\n\nDo you want to MERGE items to this order?\n\n(Click OK to Merge, Click Cancel to Save as NEW Order)`)) {
+          if(confirm(`⚠️ Order #${orderNo} (Customer: ${currentCust}) already exists.\n\nClick OK (Yes) to ADD items to this Customer's Account (New Ledger Entry).\n\nClick Cancel (No) to Create a completely NEW Order ID.`)) {
               isDuplicateMerge = true;
           } else {
-              // User clicked Cancel -> Save as NEW Order (Do not return)
               isDuplicateMerge = false; 
           }
       }
@@ -972,82 +971,67 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
-      // If merging, use existing ID. If NOT merging (even if duplicate Order No), generate NEW ID.
-      let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
+      // ALWAYS GENERATE NEW ID (To keep entries separate date-wise and editable)
+      // Even if merging, we create a new "Order Document" representing the new transaction.
+      let id = (document.getElementById('orderId').value || genId());
       
       const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
       const currentDiscount = parseFloat(document.getElementById('discount').value) || 0;
       const currentNewTotal = parseFloat(document.getElementById('totalAmount').value) || 0;
       
       try {
-          if (isDuplicateMerge) {
-              const updatedBoxGroups = [...existingOrder.boxGroups, ...boxGroups];
-              const oldTotal = parseFloat(existingOrder.total) || 0;
-              const newGrandTotal = oldTotal + currentNewTotal;
-
-              await updateDoc(doc(db, "orders", id), {
-                  boxGroups: updatedBoxGroups,
-                  total: newGrandTotal,
-                  delDate: document.getElementById('deliveryDate').value
-              });
-
-              // Create NEW Ledger Entry for the merged amount with TODAY'S DATE
-              const additionalDebitId = genId();
-              await setDoc(doc(db, "ledger", additionalDebitId), {
-                  id: additionalDebitId,
-                  type: 'DEBIT',
-                  orderId: id,
-                  cust: existingOrder.cust,
-                  date: document.getElementById('orderDate').value, // Use the new date selected
-                  amount: currentNewTotal,
-                  desc: `Order #${orderNo} (Added Items)`
-              });
-
-              alert(`Added new items to existing Order #${orderNo}.\nAccount debited by ₹${currentNewTotal}.`);
-
+          // SAVE NEW ORDER DOCUMENT (Whether Merge or Not, to allow separate editing)
+          const newOrder = {
+              id: id,
+              no: orderNo,
+              date: document.getElementById('orderDate').value,
+              delDate: document.getElementById('deliveryDate').value,
+              delTime: document.getElementById('deliveryTime').value,
+              cust: document.getElementById('customerName').value,
+              mobile: document.getElementById('mobile').value,
+              type: document.getElementById('orderType').value,
+              note: document.getElementById('orderRemark').value,
+              boxGroups: boxGroups,
+              subTotal: currentItemsSubTotal,
+              discount: currentDiscount,
+              total: currentNewTotal
+          };
+          
+          const isEdit = document.getElementById('orderId').value !== "";
+          
+          if(isEdit) {
+             // If Updating existing entry
+             await updateDoc(doc(db, "orders", id), newOrder);
+             const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
+             if(existingDebit) {
+                 await updateDoc(doc(db, "ledger", existingDebit.id), {
+                     amount: currentNewTotal,
+                     cust: newOrder.cust,
+                     date: newOrder.date
+                 });
+             }
+             alert('Order Updated!');
           } else {
-              const isEdit = document.getElementById('orderId').value !== "";
-              
-              const newOrder = {
-                  id: id,
-                  no: orderNo,
-                  date: document.getElementById('orderDate').value,
-                  delDate: document.getElementById('deliveryDate').value,
-                  delTime: document.getElementById('deliveryTime').value,
-                  cust: document.getElementById('customerName').value,
-                  mobile: document.getElementById('mobile').value,
-                  type: document.getElementById('orderType').value,
-                  note: document.getElementById('orderRemark').value,
-                  boxGroups: boxGroups,
-                  subTotal: currentItemsSubTotal,
-                  discount: currentDiscount,
-                  total: currentNewTotal
-              };
-              
-              await setDoc(doc(db, "orders", id), newOrder);
+             // Create New Order Document
+             await setDoc(doc(db, "orders", id), newOrder);
 
-              if(isEdit) {
-                 const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
-                 if(existingDebit) {
-                     await updateDoc(doc(db, "ledger", existingDebit.id), {
-                         amount: currentNewTotal,
-                         cust: newOrder.cust,
-                         date: newOrder.date
-                     });
-                 }
-              } else {
-                  const debitEntryId = genId();
-                  await setDoc(doc(db, "ledger", debitEntryId), {
-                      id: debitEntryId, 
-                      type:'DEBIT', 
-                      orderId: id, 
-                      cust: newOrder.cust, 
-                      date: newOrder.date, 
-                      amount: currentNewTotal, 
-                      desc: 'Order #'+newOrder.no + (currentDiscount>0 ? ' (Disc: '+currentDiscount+')' : '')
-                  });
-              }
-              alert('Order Saved to Cloud!');
+             // Create Ledger Entry
+             const debitEntryId = genId();
+             await setDoc(doc(db, "ledger", debitEntryId), {
+                  id: debitEntryId, 
+                  type:'DEBIT', 
+                  orderId: id, 
+                  cust: newOrder.cust, 
+                  date: newOrder.date, 
+                  amount: currentNewTotal, 
+                  desc: 'Order #'+newOrder.no + (currentDiscount>0 ? ' (Disc: '+currentDiscount+')' : '')
+             });
+             
+             if(isDuplicateMerge) {
+                 alert(`✅ Added new entry to existing customer account.`);
+             } else {
+                 alert('✅ Order Saved Successfully!');
+             }
           }
 
           const adv = parseFloat(document.getElementById('advancePaid').value);
