@@ -1269,23 +1269,29 @@
               }
           }
 
-          // Build Payment History for this specific row (Today's payments)
+          // Build Payment History for this specific row (All-time history for context)
+          const allTxns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
+          allTxns.sort((a,b) => new Date(b.date) - new Date(a.date));
+
           let historyHtml = '';
-          data.credits.forEach(t => {
+          allTxns.forEach(t => {
+              const isCurrentDate = t.date === date;
+              const dateLabel = isCurrentDate ? "TODAY" : window.formatDate(t.date);
+              
               historyHtml += `
-              <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span><b>${window.formatMoney(t.amount)}</b> <span style="font-size:11px">(${t.mode})</span></span>
-                      <div class="badge-actions">
-                          <button class="btn-icon icon-edit" onclick="window.openEditPayment('${t.id}')">✎</button>
-                          <button class="btn-icon icon-del" onclick="window.deleteTransaction('${t.id}')">✖</button>
-                      </div>
-                  </div>
+              <div class="pay-history-item" style="${isCurrentDate ? 'font-weight:bold; color:#000;' : 'color:#666;'}">
+                  <span>${dateLabel}:</span>
+                  <span><b>${window.formatMoney(t.amount)}</b> (${t.mode})</span>
+                  ${isCurrentDate ? `
+                  <div class="badge-actions" style="float:right;">
+                      <button class="btn-icon icon-edit" onclick="window.openEditPayment('${t.id}')">✎</button>
+                      <button class="btn-icon icon-del" onclick="window.deleteTransaction('${t.id}')">✖</button>
+                  </div>` : ''}
               </div>`;
           });
 
           // Calculate Due (Global Due for this order)
-          const allPaid = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid).reduce((sum, l) => sum + parseFloat(l.amount||0), 0);
+          const allPaid = allTxns.reduce((sum, l) => sum + parseFloat(l.amount||0), 0);
           const globalDue = ord.total - allPaid;
 
           if (billAmount > 0 || historyHtml !== '') {
