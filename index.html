@@ -925,7 +925,7 @@
       document.getElementById('balanceShow').value = (netTotal - adv).toFixed(2);
   }
 
-  // --- UPDATED SAVE LOGIC: Strict Duplicate Check & Allow Saving New on Cancel ---
+  // --- UPDATED SAVE LOGIC: SNAPSHOT SAVING FOR LEDGER (CRITICAL FIX) ---
   document.getElementById('orderForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
@@ -947,7 +947,7 @@
           if(confirm(`⚠️ Order #${orderNo} already exists for ${currentCust}.\n\nDo you want to MERGE items to this order?\n\n(Click OK to Merge, Click Cancel to Save as NEW Order)`)) {
               isDuplicateMerge = true;
           } else {
-              // User clicked Cancel -> Save as NEW Order (Do not return)
+              // User clicked Cancel -> Save as NEW Order
               isDuplicateMerge = false; 
           }
       }
@@ -972,8 +972,8 @@
 
       if(boxGroups.length === 0) return alert("Add at least one box.");
 
-      // If merging, use existing ID. If NOT merging (even if duplicate Order No), generate NEW ID.
-      let id = isDuplicateMerge ? existingOrder.id : (document.getElementById('orderId').value || genId());
+      // ALWAYS GENERATE NEW ID for the Transaction (Ledger), even if merging Order data
+      let id = (document.getElementById('orderId').value || genId());
       
       const currentItemsSubTotal = parseFloat(document.getElementById('subTotal').value) || 0;
       const currentDiscount = parseFloat(document.getElementById('discount').value) || 0;
@@ -985,22 +985,24 @@
               const oldTotal = parseFloat(existingOrder.total) || 0;
               const newGrandTotal = oldTotal + currentNewTotal;
 
-              await updateDoc(doc(db, "orders", id), {
+              // Update the Main Order Document (so total and full list is correct)
+              await updateDoc(doc(db, "orders", existingOrder.id), {
                   boxGroups: updatedBoxGroups,
                   total: newGrandTotal,
                   delDate: document.getElementById('deliveryDate').value
               });
 
-              // Create NEW Ledger Entry for the merged amount with TODAY'S DATE
+              // Create NEW Ledger Entry (Debit) with TODAY'S DATE and ONLY NEW ITEMS (Snapshot)
               const additionalDebitId = genId();
               await setDoc(doc(db, "ledger", additionalDebitId), {
                   id: additionalDebitId,
                   type: 'DEBIT',
-                  orderId: id,
+                  orderId: existingOrder.id,
                   cust: existingOrder.cust,
-                  date: document.getElementById('orderDate').value, // Use the new date selected
+                  date: document.getElementById('orderDate').value, 
                   amount: currentNewTotal,
-                  desc: `Order #${orderNo} (Added Items)`
+                  desc: `Order #${orderNo} (Added Items)`,
+                  itemSnapshot: boxGroups // <--- CRITICAL FIX: Saving only the new items here
               });
 
               alert(`Added new items to existing Order #${orderNo}.\nAccount debited by ₹${currentNewTotal}.`);
@@ -1024,30 +1026,38 @@
                   total: currentNewTotal
               };
               
-              await setDoc(doc(db, "orders", id), newOrder);
-
               if(isEdit) {
+                 // If Updating existing entry
+                 await updateDoc(doc(db, "orders", id), newOrder);
                  const existingDebit = globalLedger.find(l => l.orderId === id && l.type === 'DEBIT');
                  if(existingDebit) {
                      await updateDoc(doc(db, "ledger", existingDebit.id), {
                          amount: currentNewTotal,
                          cust: newOrder.cust,
-                         date: newOrder.date
+                         date: newOrder.date,
+                         itemSnapshot: boxGroups // Update snapshot too
                      });
                  }
+                 alert('Order Updated!');
               } else {
-                  const debitEntryId = genId();
-                  await setDoc(doc(db, "ledger", debitEntryId), {
+                 // Create New Order Document
+                 await setDoc(doc(db, "orders", id), newOrder);
+
+                 // Create Ledger Entry
+                 const debitEntryId = genId();
+                 await setDoc(doc(db, "ledger", debitEntryId), {
                       id: debitEntryId, 
                       type:'DEBIT', 
                       orderId: id, 
                       cust: newOrder.cust, 
                       date: newOrder.date, 
                       amount: currentNewTotal, 
-                      desc: 'Order #'+newOrder.no + (currentDiscount>0 ? ' (Disc: '+currentDiscount+')' : '')
-                  });
+                      desc: 'Order #'+newOrder.no + (currentDiscount>0 ? ' (Disc: '+currentDiscount+')' : ''),
+                      itemSnapshot: boxGroups // <--- CRITICAL FIX: Saving specific items
+                 });
+                 
+                 alert('✅ Order Saved Successfully!');
               }
-              alert('Order Saved to Cloud!');
           }
 
           const adv = parseFloat(document.getElementById('advancePaid').value);
@@ -1055,7 +1065,7 @@
                const payDate = document.getElementById('advanceDate').value || today;
                const payId = genId();
                await setDoc(doc(db, "ledger", payId), {
-                   id: payId, type:'CREDIT', orderId: id, cust: document.getElementById('customerName').value, date: payDate, amount: adv, mode: document.getElementById('paymentMode').value, desc: 'Advance/Payment'
+                   id: payId, type:'CREDIT', orderId: isDuplicateMerge ? existingOrder.id : id, cust: document.getElementById('customerName').value, date: payDate, amount: adv, mode: document.getElementById('paymentMode').value, desc: 'Advance/Payment'
                });
           }
 
@@ -1137,6 +1147,7 @@
           'Arpit': { cash: 0, online: 0, expense: 0 }
       };
 
+      // Loop through ledger for calculations
       globalLedger.forEach(l => {
           if(l.date === date) {
               const amt = parseFloat(l.amount) || 0;
@@ -1146,15 +1157,12 @@
               if(l.type === 'CREDIT') {
                   totalInc += amt;
                   modeCounts[m] = (modeCounts[m] || 0) + amt;
-                  // If payment for Sweets (CREDIT) is Cash
                   if(isCash) totalSweetsCash += amt;
               } 
               else if(l.type === 'EXTRA_INCOME') {
                   totalInc += amt;
-                  // If Extra Income is Cash
                   if(isCash || m.toLowerCase().includes('counter')) totalExtraCash += amt;
                   
-                  // Handle Cashier Logic
                   if(l.cashier) {
                       if(!cashierData[l.cashier]) cashierData[l.cashier] = { cash: 0, online: 0, expense: 0 };
                       if(isCash || m.toLowerCase().includes('counter')) {
@@ -1187,7 +1195,6 @@
 
       const dash = document.getElementById('summaryDashboard');
       
-      // Calculate NET CASH (Sweets Cash - Expenses)
       const netSweetsCashHand = totalSweetsCash - totalExp;
 
       let boxesHtml = `
@@ -1197,7 +1204,6 @@
           <div class="summary-card" style="border-left-color: #009688; background-color: #e0f2f1; color: #00695c;"><h4>Total Staff/Extra Cash</h4><div class="value">${window.formatMoney(totalExtraCash)}</div></div>
       `;
       
-      // Payment Breakdown Cards
       for (const [mode, val] of Object.entries(modeCounts)) {
           if(val > 0 && mode !== 'Credits') {
               boxesHtml += `<div class="summary-card" style="${window.getCardStyle(mode)}"><h4>${mode} Total</h4><div class="value">${window.formatMoney(val)}</div></div>`;
@@ -1212,61 +1218,47 @@
 
       const tbody = document.querySelector('#summaryTable tbody');
       tbody.innerHTML = '';
-      const uniqueOrds = [...new Set(globalLedger.filter(l => l.date === date && l.orderId).map(t=>t.orderId))];
       
-      // FIX: Add orders delivered TODAY that have NO ledger entries yet
-      todaysOrders.forEach(o => {
-         if(!uniqueOrds.includes(o.id)) uniqueOrds.push(o.id);
+      // Get all Ledger Entries for TODAY (Includes Debits and Credits)
+      // This is the key change for "Daily Summary Report" to show specific items
+      const todaysLedger = globalLedger.filter(l => l.date === date && (l.type === 'DEBIT' || l.type === 'CREDIT' || l.type === 'DISCOUNT'));
+      
+      // Group by Order ID to show nicely
+      const orderGroups = {};
+      todaysLedger.forEach(l => {
+          if(!l.orderId) return;
+          if(!orderGroups[l.orderId]) orderGroups[l.orderId] = { debit: null, credits: [] };
+          if(l.type === 'DEBIT') orderGroups[l.orderId].debit = l;
+          else orderGroups[l.orderId].credits.push(l);
       });
 
-      uniqueOrds.forEach(oid => {
+      // Also ensure orders delivered today are shown even if no ledger entry today
+      todaysOrders.forEach(o => {
+          if(!orderGroups[o.id]) orderGroups[o.id] = { debit: { orderId: o.id, amount: o.total, isOrderLookup: true }, credits: [] };
+      });
+
+      for (const [oid, data] of Object.entries(orderGroups)) {
           const ord = globalOrders.find(o=>o.id===oid);
-          if(ord) {
-              const allTxns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
-              allTxns.sort((a,b) => new Date(b.date) - new Date(a.date));
+          if(!ord) continue;
 
-              let historyHtml = '';
-              let paidTotalEver = 0;
+          let boxDetailsStr = "";
+          let billAmount = 0;
 
-              allTxns.forEach(t => {
-                  paidTotalEver += parseFloat(t.amount);
-                  const isCurrentDate = t.date === date;
-                  
-                  if(isCurrentDate) {
-                      historyHtml += `
-                      <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
-                          <div style="display:flex; justify-content:space-between; align-items:center;">
-                              <span><b>${window.formatMoney(t.amount)}</b> <span style="font-size:11px">(${t.mode})</span></span>
-                              <div class="badge-actions">
-                                  <button class="btn-icon icon-edit" onclick="window.openEditPayment('${t.id}')">✎</button>
-                                  <button class="btn-icon icon-del" onclick="window.deleteTransaction('${t.id}')">✖</button>
-                              </div>
-                          </div>
-                      </div>`;
-                  } else {
-                      historyHtml += `
-                      <div class="pay-history-item">
-                          <span>${window.formatDate(t.date)}:</span>
-                          <span><b>${window.formatMoney(t.amount)}</b> (${t.mode})</span>
-                      </div>`;
-                  }
-              });
-
-              if(paidTotalEver === 0 && ord.total > 0) {
-                   historyHtml = `
-                   <div class="mode-badge" style="background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; border-left-color:#7b1fa2;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span><b>Full Credit</b> <span style="font-size:10px">(Udhaar)</span></span>
-                            <div class="badge-actions">
-                                <button class="btn-icon icon-edit" onclick="window.openPay('${ord.id}')" title="Add Payment">➕ Pay</button>
-                            </div>
-                        </div>
-                   </div>`;
-              }
-
-              const due = ord.total - paidTotalEver;
-              let boxDetailsStr = "";
-              if(ord.boxGroups){
+          // If we have a Debit Entry today, use its Snapshot
+          if (data.debit && data.debit.itemSnapshot) {
+              billAmount = data.debit.amount;
+              boxDetailsStr = data.debit.itemSnapshot.map(bg => {
+                   const itemDetails = bg.items.map(i => `${i.name} (${i.qty} x ${i.rate})`).join(', ');
+                   return `<div style="margin-bottom:5px; border-bottom:1px dashed #eee;">
+                               <b>${bg.groupQty} x ${bg.groupName}</b><br>
+                               <span style="font-size:11px; color:#666;">${itemDetails}</span>
+                           </div>`;
+               }).join('');
+          } 
+          // Fallback: If it's just an order delivery today with no specific debit entry (or old data)
+          else if (data.debit && data.debit.isOrderLookup) {
+              billAmount = ord.total;
+              if(ord.boxGroups) {
                    boxDetailsStr = ord.boxGroups.map(bg => {
                        const itemDetails = bg.items.map(i => `${i.name} (${i.qty} x ${i.rate})`).join(', ');
                        return `<div style="margin-bottom:5px; border-bottom:1px dashed #eee;">
@@ -1275,12 +1267,68 @@
                                </div>`;
                    }).join('');
               }
-
-              if(ord.delDate === date || historyHtml.includes('mode-badge')) {
-                  tbody.innerHTML += `<tr><td>${ord.no}</td><td>${window.formatDate(ord.delDate)}</td><td>${ord.cust}</td><td>${boxDetailsStr}</td><td>${window.formatMoney(ord.total)}</td><td>${historyHtml}</td><td style="color:${due>0?'red':'green'}">${window.formatMoney(due)}</td></tr>`;
-              }
           }
-      });
+
+          // Build Payment History (Includes ALL history now, but distinguishes Today vs Old)
+          const allTxns = globalLedger.filter(l => (l.type === 'CREDIT' || l.type === 'DISCOUNT') && l.orderId === oid);
+          allTxns.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+          let historyHtml = '';
+          allTxns.forEach(t => {
+              const isCurrentDate = t.date === date;
+              const dateLabel = isCurrentDate ? "TODAY" : window.formatDate(t.date);
+              
+              if (isCurrentDate) {
+                  // Use COLORFUL BADGE for Today
+                  historyHtml += `
+                  <div class="mode-badge" style="${window.getModeBadgeStyle(t.mode)}">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <span><b>${window.formatMoney(t.amount)}</b> <span style="font-size:11px">(${t.mode})</span></span>
+                          <div class="badge-actions">
+                              <button class="btn-icon icon-edit" onclick="window.openEditPayment('${t.id}')">✎</button>
+                              <button class="btn-icon icon-del" onclick="window.deleteTransaction('${t.id}')">✖</button>
+                          </div>
+                      </div>
+                  </div>`;
+              } else {
+                  // Use LIGHT BLACK TEXT for Old
+                  historyHtml += `
+                  <div class="pay-history-item" style="color:#888; font-size:11px; border-bottom:1px dashed #eee; padding:2px 0;">
+                      <span>${window.formatDate(t.date)}:</span>
+                      <span><b>${window.formatMoney(t.amount)}</b> (${t.mode})</span>
+                  </div>`;
+              }
+          });
+          
+          // IF NO PAYMENT AT ALL (FULL UDHAAR)
+          if(allTxns.length === 0 && ord.total > 0) {
+               historyHtml = `
+               <div class="mode-badge" style="background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; border-left-color:#7b1fa2;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><b>Full Credit</b> <span style="font-size:10px">(Udhaar)</span></span>
+                        <div class="badge-actions">
+                            <button class="btn-icon icon-edit" onclick="window.openPay('${ord.id}')" title="Add Payment">➕ Pay</button>
+                        </div>
+                    </div>
+               </div>`;
+          }
+
+          // Calculate Due (Global Due for this order)
+          const allPaid = allTxns.reduce((sum, l) => sum + parseFloat(l.amount||0), 0);
+          const globalDue = ord.total - allPaid;
+
+          if (billAmount > 0 || historyHtml !== '') {
+               tbody.innerHTML += `<tr>
+                  <td>${ord.no}</td>
+                  <td>${window.formatDate(ord.delDate)}</td>
+                  <td>${ord.cust}</td>
+                  <td>${boxDetailsStr}</td>
+                  <td>${window.formatMoney(billAmount)}</td>
+                  <td>${historyHtml}</td>
+                  <td style="color:${globalDue>0?'red':'green'}">${window.formatMoney(globalDue)}</td>
+               </tr>`;
+          }
+      }
 
       const expTbody = document.querySelector('#summaryExpenseTable tbody');
       expTbody.innerHTML = '';
@@ -1687,16 +1735,29 @@
           
           // --- NEW: FETCH ITEMS DETAILS FOR DEBIT ENTRIES ---
           let itemDetails = "";
-          if(l.type === 'DEBIT' && l.orderId) {
-              const ord = globalOrders.find(o => o.id === l.orderId);
-              if(ord && ord.boxGroups) {
-                  itemDetails = '<div style="font-size:10px; color:#666; margin-top:3px;">';
-                  ord.boxGroups.forEach(bg => {
-                       const iNames = bg.items.map(i=>i.name).join(', ');
-                       itemDetails += `• ${bg.groupQty} x ${bg.groupName} <i style="color:#888">(${iNames})</i><br>`;
-                  });
-                  itemDetails += '</div>';
-              }
+          
+          // CRITICAL FIX: Use snapshot if available, else fallback to Main Order
+          if(l.type === 'DEBIT') {
+             if (l.itemSnapshot && l.itemSnapshot.length > 0) {
+                 // Use specific snapshot
+                 itemDetails = '<div style="font-size:10px; color:#666; margin-top:3px;">';
+                 l.itemSnapshot.forEach(bg => {
+                      const iNames = bg.items.map(i=>i.name).join(', ');
+                      itemDetails += `• ${bg.groupQty} x ${bg.groupName} <i style="color:#888">(${iNames})</i><br>`;
+                 });
+                 itemDetails += '</div>';
+             } else if(l.orderId) {
+                 // Fallback to Main Order (Old Data)
+                 const ord = globalOrders.find(o => o.id === l.orderId);
+                 if(ord && ord.boxGroups) {
+                      itemDetails = '<div style="font-size:10px; color:#666; margin-top:3px;">';
+                      ord.boxGroups.forEach(bg => {
+                           const iNames = bg.items.map(i=>i.name).join(', ');
+                           itemDetails += `• ${bg.groupQty} x ${bg.groupName} <i style="color:#888">(${iNames})</i><br>`;
+                      });
+                      itemDetails += '</div>';
+                 }
+             }
           }
           // --------------------------------------------------
 
